@@ -2,6 +2,7 @@ package unicon.Achiva.domain.member;
 
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -58,7 +59,7 @@ public class MemberController {
     @GetMapping("/api/members")
     public ResponseEntity<ApiResponseForm<Page<MemberResponse>>> getMembers(
             SearchMemberCondition condition,
-            Pageable pageable
+            @ParameterObject Pageable pageable
     ) {
         Page<MemberResponse> members = memberService.getMembers(condition, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(members, "닉네임으로 유저 검색 성공"));

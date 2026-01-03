@@ -18,8 +18,8 @@ public class FriendshipResponse {
     public static FriendshipResponse fromEntity(Friendship friendship) {
         return FriendshipResponse.builder()
                 .id(friendship.getId())
-                .requesterId(friendship.getRequesterId())
-                .receiverId(friendship.getReceiverId())
+                .requesterId(friendship.getRequester().getId())
+                .receiverId(friendship.getReceiver().getId())
                 .status(friendship.getStatus())
                 .build();
     }

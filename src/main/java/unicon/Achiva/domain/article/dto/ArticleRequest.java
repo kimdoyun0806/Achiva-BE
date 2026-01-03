@@ -11,20 +11,8 @@ import unicon.Achiva.global.validation.ValidHexColor;
 
 import java.util.List;
 
-@Getter
-public class ArticleRequest {
-
-    @URL(protocol = "https")
-    private final String photoUrl;
-
-    @NotNull
-    @Size(min = 1, max = 50)
-    private final String title;
-    private final Category category;
-    private final List<QuestionDTO> question;
-
-    @ValidHexColor
-    private final String backgroundColor;
+public record ArticleRequest(@URL(protocol = "https") String photoUrl, @NotNull @Size(min = 1, max = 50) String title,
+                             Category category, List<QuestionDTO> question, @ValidHexColor String backgroundColor) {
 
     public ArticleRequest(String photoUrl, String title, Category category, List<QuestionDTO> question, String backgroundColor) {
         this.photoUrl = photoUrl;

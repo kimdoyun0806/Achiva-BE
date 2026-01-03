@@ -1,17 +1,8 @@
 package unicon.Achiva.domain.category;
 
-import lombok.Getter;
-
 import java.util.List;
 
-@Getter
-public class CategoryCountResponse {
-
-    private final List<CategoryCount> categoryCounts;
-
-    public CategoryCountResponse(List<CategoryCount> categoryCounts) {
-        this.categoryCounts = categoryCounts;
-    }
+public record CategoryCountResponse(List<CategoryCount> categoryCounts) {
 
     public static CategoryCountResponse fromObjectList(List<Object[]> categoryCountObjects) {
         List<CategoryCount> categoryCounts = categoryCountObjects.stream()
@@ -21,14 +12,6 @@ public class CategoryCountResponse {
     }
 
 
-    @Getter
-    public static class CategoryCount {
-        private final String category;
-        private final Long count;
-
-        public CategoryCount(String category, Long count) {
-            this.category = category;
-            this.count = count;
-        }
+    public record CategoryCount(String category, Long count) {
     }
 }

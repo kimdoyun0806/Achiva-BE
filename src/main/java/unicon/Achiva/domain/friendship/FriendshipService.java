@@ -9,6 +9,7 @@ import unicon.Achiva.domain.friendship.dto.FriendshipResponse;
 import unicon.Achiva.domain.friendship.entity.Friendship;
 import unicon.Achiva.domain.friendship.infrastructure.FriendshipRepository;
 import unicon.Achiva.domain.member.MemberErrorCode;
+import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.global.response.GeneralException;
 
@@ -27,15 +28,17 @@ public class FriendshipService {
 
     @Transactional
     public FriendshipResponse sendFriendRequest(FriendshipRequest friendshipRequest, UUID fromMemberId) {
-        UUID toMemberId = friendshipRequest.getRecieverId();
 
-        if (!memberRepository.existsById(fromMemberId) || !memberRepository.existsById(toMemberId)) {
-            throw new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND);
-        }
+
+        Member requester = memberRepository.findById(fromMemberId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+        Member receiver = memberRepository.findById(friendshipRequest.getRecieverId())
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
 
         Friendship friendship = Friendship.builder()
-                .requesterId(fromMemberId)
-                .receiverId(toMemberId)
+                .requester(requester)
+                .receiver(receiver)
                 .status(FriendshipStatus.PENDING)
                 .build();
 
@@ -52,12 +55,12 @@ public class FriendshipService {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_ALREADY_PROCESSED);
         }
 
-        if (!friendship.getReceiverId().equals(memberId)) {
+        if (!friendship.getReceiver().getId().equals(memberId)) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_RECEIVER);
         }
 
         friendship.updateStatus(FriendshipStatus.ACCEPTED);
-        friendshipRepository.save(friendship);
+
         return FriendshipResponse.fromEntity(friendship);
     }
 
@@ -70,7 +73,7 @@ public class FriendshipService {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_ALREADY_PROCESSED);
         }
 
-        if (!friendship.getReceiverId().equals(memberId)) {
+        if (!friendship.getReceiver().getId().equals(memberId)) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_RECEIVER);
         }
 
@@ -114,10 +117,34 @@ public class FriendshipService {
     }
 
     @Transactional
-    public void removeFriendship(Long friendshipId) {
+    public void blockFriendship(Long friendshipId, UUID memberId) {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
 
-        friendshipRepository.delete(friendship);
+        if (friendship.getStatus() != FriendshipStatus.ACCEPTED) {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FRIENDS);
+        }
+
+        if (friendship.getReceiver().getId().equals(memberId)) {
+            friendship.updateStatus(FriendshipStatus.BLOCKED);
+        } else {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_RECEIVER);
+        }
+    }
+
+    @Transactional
+    public void cancelFriendRequest(Long friendshipId, UUID memberId) {
+        Friendship friendship = friendshipRepository.findById(friendshipId)
+                .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
+
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_ALREADY_PROCESSED);
+        }
+
+        if (friendship.getRequester().getId().equals(memberId)) {
+            friendshipRepository.delete(friendship);
+        } else {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_REQUESTER);
+        }
     }
 }

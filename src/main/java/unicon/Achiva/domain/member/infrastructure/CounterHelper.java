@@ -25,6 +25,7 @@ import java.util.UUID;
 public class CounterHelper {
 
     private final MemberCategoryCounterRepository counterRepo;
+    private final MemberRepository memberRepo;
 
     /**
      * 지정된 회원 ID와 카테고리에 해당하는 {@link MemberCategoryCounter} 엔티티를
@@ -43,6 +44,7 @@ public class CounterHelper {
         return counterRepo.lockById(key).orElseGet(() -> {
             MemberCategoryCounter c = new MemberCategoryCounter();
             c.setId(key);
+            c.setMember(memberRepo.getReferenceById(memberId));
             c.setSize(0L);
             return counterRepo.saveAndFlush(c);
         });

@@ -2,16 +2,19 @@ package unicon.Achiva.domain.friendship;
 
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.friendship.dto.FriendshipRequest;
 import unicon.Achiva.domain.friendship.dto.FriendshipResponse;
 import unicon.Achiva.global.response.ApiResponseForm;
+import unicon.Achiva.global.response.GeneralException;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class FriendshipController {
@@ -93,5 +96,36 @@ public class FriendshipController {
         List<FriendshipResponse> sentRequests = friendshipService.getSentFriendRequests(memberId);
         return ResponseEntity.ok(ApiResponseForm.success(sentRequests, "보낸 친구 신청 목록 조회 성공"));
 
+    }
+
+    @Operation(summary = "친구 차단")
+    @PatchMapping("/api/friendships/{friendshipId}/block")
+    public ResponseEntity<ApiResponseForm<Void>> deleteFriendRequest(
+            @PathVariable Long friendshipId
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        try { //분쟁 및 친구 목록 크롤링 방지를 위해 외부로 나가는 친구 차단/삭제 요청 에러는 FRIENDSHIP_HIDE_REASON 통일
+            friendshipService.blockFriendship(friendshipId, memberId);
+        } catch (GeneralException e) {
+            log.error("친구 차단 실패: {}", e.getMessage());
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_HIDE_REASON);
+        }
+
+        return ResponseEntity.ok(ApiResponseForm.success(null, "친구 신청 삭제 성공"));
+    }
+
+    @Operation(summary = "친구 신청 취소")
+    @DeleteMapping("/api/friendships/{friendshipId}")
+    public ResponseEntity<ApiResponseForm<Void>> cancelFriendRequest(
+            @PathVariable Long friendshipId
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        try { //분쟁 및 친구 목록 크롤링 방지를 위해 외부로 나가는 친구 차단/삭제 요청 에러는 FRIENDSHIP_HIDE_REASON 통일
+            friendshipService.cancelFriendRequest(friendshipId, memberId);
+        } catch (GeneralException e) {
+            log.error("친구 신청 취소 실패: {}", e.getMessage());
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_HIDE_REASON);
+        }
+        return ResponseEntity.ok(ApiResponseForm.success(null, "친구 신청 취소 성공"));
     }
 }

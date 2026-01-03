@@ -1,4 +1,4 @@
-package unicon.Achiva.domain.category;
+package unicon.Achiva.domain.cheering;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -7,38 +7,27 @@ import lombok.Getter;
 import java.util.Arrays;
 
 @Getter
-public enum Category {
-    STUDY("공부"),
-    WORKOUT("운동"),
-    CAREER("커리어"),
-    READING("독서"),
-    MINDSET("루틴/다짐"),
-    FASHION("패션"),
-    INVESTMENT("투자/머니로그"),
-    TRAVEL("여행"),
-    DIET("식단"),
-    FAMILY("가족/모임"),
-    JOURNAL("생각/일기"),
-    CULTURE("문화/예술"),
-    PET("반려동물"),
-    HOBBY("취미"),
-    RELIGION("종교");
+public enum CheeringCategory {
+    PRAISE("최고예요"),
+    APPRECIATION("수고했어요"),
+    ENCOURAGEMENT("응원해요"),
+    MOTIVATION("동기부여");
 
     private final String description;
 
-    Category(String description) {
+    CheeringCategory(String description) {
         this.description = description;
     }
 
     @JsonCreator
-    public static Category fromDisplayName(String name) {
+    public static CheeringCategory fromDisplayName(String name) {
         return Arrays.stream(values())
                 .filter(c -> c.description.equals(name) || c.name().equalsIgnoreCase(name))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("잘못된 카테고리: " + name));
     }
 
-    public static String getDisplayName(Category category) {
+    public static String getDisplayName(CheeringCategory category) {
         return category.getDescription();
     }
 

@@ -2,6 +2,7 @@ package unicon.Achiva.domain.cheering.dto;
 
 import lombok.Builder;
 import lombok.Getter;
+import unicon.Achiva.domain.cheering.CheeringCategory;
 import unicon.Achiva.domain.cheering.entity.Cheering;
 
 import java.time.LocalDateTime;
@@ -12,7 +13,7 @@ import java.util.UUID;
 public class CheeringResponse {
     private Long id;
     private String content;
-    private String cheeringCategory;
+    private CheeringCategory cheeringCategory;
     private UUID senderId;
     private String senderName;
     private String senderProfileImageUrl;

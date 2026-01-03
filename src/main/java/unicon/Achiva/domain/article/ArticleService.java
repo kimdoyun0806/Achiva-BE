@@ -10,9 +10,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import unicon.Achiva.domain.article.dto.ArticleRequest;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
+import unicon.Achiva.domain.article.dto.ArticleWithBookResponse;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
 import unicon.Achiva.domain.article.entity.Article;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
+import unicon.Achiva.domain.book.entity.BookArticle;
+import unicon.Achiva.domain.book.infrastructure.BookArticleRepository;
 import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.category.CategoryCountResponse;
 import unicon.Achiva.domain.cheering.infrastructure.CheeringRepository;
@@ -43,35 +46,47 @@ public class ArticleService {
     private final FriendshipRepository friendshipRepository;
     private final CheeringRepository cheeringRepository;
     private final MemberCategoryCounterRepository memberCategoryCounterRepository;
+    private final BookArticleRepository bookArticleRepository;
 
+
+    @Transactional(readOnly = true)
+    public List<BookArticle> getBookArticleList(UUID articleId) {
+        return bookArticleRepository.findBookInfosByArticleId(articleId).orElse(new ArrayList<>());
+    }
 
     @Transactional
-    public ArticleResponse createArticle(ArticleRequest request, UUID memberId) {
+    public Article createArticleEntity(ArticleRequest request, UUID memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
-        Category cat = request.getCategory();
+        Category cat = request.category();
 
         MemberCategoryCounter dst = counterHelper.lockOrInit(memberId, cat);
         long newSeq = dst.getSize() + 1;
         dst.setSize(newSeq);
 
         Article article = Article.builder()
-                .photoUrl(request.getPhotoUrl())
-                .title(request.getTitle())
-                .category(request.getCategory())
-                .questions(request.getQuestion().stream()
+                .photoUrl(request.photoUrl())
+                .title(request.title())
+                .category(request.category())
+                .questions(request.question().stream()
                         .map(ArticleRequest.QuestionDTO::toEntity)
-                        .toList())
+                        .collect(Collectors.toList()))
                 .member(member)
                 .authorCategorySeq(newSeq)
-                .backgroundColor(request.getBackgroundColor())
+                .backgroundColor(request.backgroundColor())
                 .build();
 
         article.getQuestions().forEach(q -> q.setArticle(article));
 
         articleRepository.save(article);
 
-        return ArticleResponse.fromEntity(article);
+        return article;
+    }
+
+    @Transactional
+    public ArticleWithBookResponse createArticle(ArticleRequest request, UUID memberId) {
+        Article article = createArticleEntity(request, memberId);
+        return ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId()));
     }
 
     @Transactional
@@ -85,7 +100,7 @@ public class ArticleService {
 
         Category oldCat = article.getCategory();
         long oldSeq = article.getAuthorCategorySeq();
-        Category newCat = request.getCategory();
+        Category newCat = request.category();
 
         if (oldCat.equals(newCat)) {
             // 카테고리 동일 → 내용만 갱신 (densify 불필요)
@@ -146,17 +161,18 @@ public class ArticleService {
     public ArticleResponse getArticle(UUID articleId) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new GeneralException(ArticleErrorCode.ARTICLE_NOT_FOUND));
+
         return ArticleResponse.fromEntity(article);
     }
 
-    public Page<ArticleResponse> getArticles(SearchArticleCondition condition, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getArticles(SearchArticleCondition condition, Pageable pageable) {
         return articleRepository.searchByCondition(condition, pageable)
-                .map(ArticleResponse::fromEntity);
+                .map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
     }
 
-    public Page<ArticleResponse> getArticlesByMember(UUID memberId, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getArticlesByMember(UUID memberId, Pageable pageable) {
         return articleRepository.findAllByMemberId(memberId, pageable)
-                .map(ArticleResponse::fromEntity);
+                .map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
     }
 
     public CategoryCountResponse getArticleCountByCategory(UUID memberId) {
@@ -185,7 +201,7 @@ public class ArticleService {
         return CategoryCountResponse.fromObjectList(completeResult);
     }
 
-    public Page<ArticleResponse> getHomeArticles(UUID myId, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getHomeArticles(UUID myId, Pageable pageable) {
         List<UUID> friendIds = friendshipRepository.findFriendIdsOf(myId, FriendshipStatus.ACCEPTED);
         List<UUID> cheererIds = cheeringRepository.findDistinctCheererIdsWhoCheeredMyArticles(myId);
 
@@ -199,7 +215,7 @@ public class ArticleService {
                 .toList();
 
         Page<Article> page = articleRepository.findCombinedFeed(friendIds, cheererOnly, pageable);
-        return page.map(ArticleResponse::fromEntity);
+        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
     }
 
 
@@ -236,7 +252,7 @@ public class ArticleService {
         a.changeCategoryAndSeq(newCategory, newSeq);
     }
 
-    public Page<ArticleResponse> getMemberInterestFeed(UUID memberId, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getMemberInterestFeed(UUID memberId, Pageable pageable) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
 
@@ -254,7 +270,7 @@ public class ArticleService {
         }
 
         Page<Article> page = articleRepository.findByCategoryIn(cats, sorted);
-        return page.map(ArticleResponse::fromEntity);
+        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
     }
 
     private MemberCategoryCounter initCounter(MemberCategoryKey key) {
@@ -279,8 +295,8 @@ public class ArticleService {
         return memberCategoryCounterRepository.saveAndFlush(c);
     }
 
-    public Page<ArticleResponse> getArticlesByMemberAndCateogry(UUID memberId, String category, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getArticlesByMemberAndCateogry(UUID memberId, String category, Pageable pageable) {
         return articleRepository.findByMemberIdWithCategory(memberId, Category.fromDisplayName(category), pageable)
-                .map(ArticleResponse::fromEntity);
+                .map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
     }
 }

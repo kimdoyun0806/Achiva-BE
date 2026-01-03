@@ -58,7 +58,7 @@ public class AuthService {
                 .id(getMemberIdFromToken())
                 .email(email)
                 .nickName(nickName)
-                .profileImageUrl(requestDto.getProfileImageUrl())
+                .profileImageUrl(requestDto.getProfileImageUrl() != null ? requestDto.getProfileImageUrl() : "https://achivadata.s3.ap-northeast-2.amazonaws.com/default-profile-image.png")
                 .birth(requestDto.getBirth())
                 .gender(requestDto.getGender() != null ? requestDto.getGender() : null)
                 .region(requestDto.getRegion() != null ? requestDto.getRegion() : null)

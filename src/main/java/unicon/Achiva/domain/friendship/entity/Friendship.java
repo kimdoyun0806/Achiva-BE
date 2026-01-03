@@ -1,15 +1,15 @@
 package unicon.Achiva.domain.friendship.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import unicon.Achiva.domain.friendship.FriendshipStatus;
+import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.global.common.LongBaseEntity;
-
-import java.util.UUID;
 
 @Getter
 @Entity
@@ -18,16 +18,21 @@ import java.util.UUID;
 @Builder
 public class Friendship extends LongBaseEntity {
 
-    @Column(nullable = false)
-    private UUID requesterId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requester_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Member requester;
 
-    @Column
-    private UUID receiverId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "receiver_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Member receiver;
 
-    private FriendshipStatus status; // "PENDING", "ACCEPTED", "REJECTED"
+    @Enumerated(EnumType.STRING)
+    private FriendshipStatus status;
 
-    public void updateReceiverId(UUID recieverId) {
-        this.receiverId = recieverId;
+    public void updateReceiver(Member receiver) {
+        this.receiver = receiver;
     }
 
     public void updateStatus(FriendshipStatus acceptStatus) {

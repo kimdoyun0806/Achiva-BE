@@ -44,9 +44,9 @@ public class SwaggerSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(a -> a
-                          .requestMatchers("/login/**", "/oauth2/**", "/error").permitAll()
-                          .requestMatchers("/api/debug/token").hasRole("DOCS")
-                          .anyRequest().hasRole("DOCS")
+                                .requestMatchers("/login/**", "/oauth2/**", "/error").permitAll()
+                                .requestMatchers("/api/debug/token").hasRole("DOCS")
+                                .anyRequest().hasRole("DOCS")
 //                                .anyRequest().permitAll()
                 )
                 .oauth2Login(o -> o

@@ -1,8 +1,12 @@
 package unicon.Achiva.domain.cheering;
 
 import io.swagger.v3.oas.annotations.Operation;
-import jakarta.servlet.http.HttpServletRequest;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -56,18 +60,23 @@ public class CheeringController {
     @Operation(summary = "특정 응원 조회")
     @GetMapping("api/articles/{articleId}/cheerings/{cheeringId}")
     public ResponseEntity<ApiResponseForm<CheeringResponse>> getCheering(
-            @RequestParam Long cheeringId,
-            HttpServletRequest httpServletRequest
+            @RequestParam Long cheeringId
     ) {
         CheeringResponse response = cheeringService.getCheering(cheeringId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "응원 조회 성공"));
     }
 
     @Operation(summary = "특정 게시글의 응원 목록 조회")
+    @Parameter(
+            name = "sort",
+            description = "정렬 기준 (예: createdAt,desc 또는 sender.nickName,asc)",
+            array = @ArraySchema(schema = @Schema(type = "string")),
+            in = ParameterIn.QUERY
+    )
     @GetMapping("api/articles/{articleId}/cheerings")
     public ResponseEntity<ApiResponseForm<Page<CheeringResponse>>> getCheeringsByArticleId(
             @PathVariable UUID articleId,
-            Pageable pageable
+            @ParameterObject Pageable pageable
     ) {
         Page<CheeringResponse> responses = cheeringService.getCheeringsByArticleId(articleId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(responses, "응원 목록 조회 성공"));
@@ -84,19 +93,20 @@ public class CheeringController {
     @Operation(summary = "내가 받은 응원 목록 조회 - 응원함 조회용으로 호출했다면 PATCH/api/cheering/read API로 읽음 처리 필요")
     @GetMapping("/api/members/me/cheerings")
     public ResponseEntity<ApiResponseForm<Page<CheeringResponse>>> getMyCheerings(
-            Pageable pageable
+            @ParameterObject Pageable pageable
     ) {
         UUID memberId = authService.getMemberIdFromToken();
         Page<CheeringResponse> responses = cheeringService.getCheeringsByMemberId(memberId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(responses, "내가 받은 응원 목록 조회 성공"));
     }
 
-    @Operation(summary = "응원 읽음 처리")
+    @Operation(summary = "내 응원 읽음 처리")
     @PatchMapping("/api/cheerings/read")
     public ResponseEntity<ApiResponseForm<List<CheeringResponse>>> readCheering(
             @RequestBody CheeringReadRequest request
     ) {
-        List<CheeringResponse> response = cheeringService.readCheering(request);
+        UUID receiverId = authService.getMemberIdFromToken();
+        List<CheeringResponse> response = cheeringService.readCheering(request, receiverId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "응원 읽음 처리 성공"));
     }
 

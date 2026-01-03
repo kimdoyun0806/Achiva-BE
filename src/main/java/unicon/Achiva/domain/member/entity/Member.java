@@ -37,7 +37,7 @@ public class Member extends BaseEntity {
 
     @URL(protocol = "https")
     @Builder.Default
-    private String profileImageUrl = "https://achiva-bucket.s3.ap-northeast-2.amazonaws.com/default-profile-image.png";
+    private String profileImageUrl = "https://achivadata.s3.ap-northeast-2.amazonaws.com/default-profile-image.png";
 
     private LocalDate birth;
 
@@ -52,9 +52,11 @@ public class Member extends BaseEntity {
     @ElementCollection(targetClass = Category.class)
     @Enumerated(EnumType.STRING)
     @OnDelete(action = OnDeleteAction.CASCADE)
+    @Column(columnDefinition = "varchar(20)")
     private List<Category> categories;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20)")
     private Role role;
 
     @Builder.Default

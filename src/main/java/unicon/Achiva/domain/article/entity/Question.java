@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import unicon.Achiva.global.common.LongBaseEntity;
 
 @Getter
@@ -22,6 +24,7 @@ public class Question extends LongBaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "article_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Article article;
 
     public void setArticle(Article article) {

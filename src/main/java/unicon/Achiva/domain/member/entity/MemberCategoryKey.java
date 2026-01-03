@@ -19,10 +19,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MemberCategoryKey implements Serializable {
-    @Column(name = "member_id")
+
+    @Column(name = "member_id", columnDefinition = "BINARY(16)")
     private UUID memberId;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 32)
+    @Column(columnDefinition = "varchar(20)")
     private Category category;
 }

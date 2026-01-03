@@ -1,5 +1,6 @@
 package unicon.Achiva.domain.cheering.infrastructure;
 
+import unicon.Achiva.domain.cheering.CheeringCategory;
 import unicon.Achiva.domain.cheering.dto.CategoryStatDto;
 
 /**
@@ -7,8 +8,7 @@ import unicon.Achiva.domain.cheering.dto.CategoryStatDto;
  * JPQL alias: category, count, points
  */
 public interface CategoryStatProjection {
-    //    Category getCategory();
-    String getCheeringCategory();
+    CheeringCategory getCheeringCategory();
 
     long getCount();
 
@@ -21,8 +21,7 @@ public interface CategoryStatProjection {
      */
     default CategoryStatDto toDto() {
         return new CategoryStatDto(
-//                Category.getDisplayName(getCategory()),
-                getCheeringCategory(),
+                CheeringCategory.getDisplayName(getCheeringCategory()),
                 getCount(),
                 getPoints()
         );

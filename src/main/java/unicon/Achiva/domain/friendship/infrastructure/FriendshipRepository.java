@@ -18,11 +18,11 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
     @Query("""
             select case
-                when f.requesterId = :me then f.receiverId
-                else f.requesterId
+                when f.requester.id = :me then f.receiver.id
+                else f.requester.id
             end
             from Friendship f
-            where (f.requesterId = :me or f.receiverId = :me)
+            where (f.requester.id = :me or f.receiver.id = :me)
               and f.status = :status
             """)
     List<UUID> findFriendIdsOf(@Param("me") UUID me,

@@ -109,8 +109,8 @@ public class CheeringService {
     }
 
     @Transactional
-    public List<CheeringResponse> readCheering(CheeringReadRequest request) {
-        List<Cheering> cheerings = cheeringRepository.findAllById(request.getCheeringIds());
+    public List<CheeringResponse> readCheering(CheeringReadRequest request, UUID receiverId) {
+        List<Cheering> cheerings = cheeringRepository.findAllByIdInAndReceiver_Id(request.getCheeringIds(), receiverId);
         cheerings.stream()
                 .filter(cheering -> !cheering.getIsRead())
                 .forEach(Cheering::markAsRead);

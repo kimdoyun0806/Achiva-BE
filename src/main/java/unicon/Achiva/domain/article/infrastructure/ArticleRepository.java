@@ -1,5 +1,6 @@
 package unicon.Achiva.domain.article.infrastructure;
 
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -21,26 +22,37 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     @Query("SELECT a.category, COUNT(a) FROM Article a WHERE a.member.id = :memberId GROUP BY a.category")
     List<Object[]> countArticlesByCategoryForMember(@Param("memberId") UUID memberId);
 
+    /**
+     * [수정됨] isBookTitle 필드 대신 LEFT JOIN을 사용하여 책의 대표(메인) 아티클을 피드에서 제외합니다.
+     * Article(a)을 기준으로 Book(b) 테이블과 LEFT JOIN을 수행합니다.
+     * 만약 아티클이 어떤 책의 대표 아티클(mainArticle)이라면 b.id가 존재할 것이고,
+     * 그렇지 않다면 b.id는 NULL이 됩니다.
+     * WHERE b.id IS NULL 조건을 통해 대표 아티클이 아닌 일반 아티클만 필터링합니다.
+     */
     @EntityGraph(attributePaths = "member")
     @Query(value = """
-            select a
-            from Article a
-            where a.member.id in :friendIds
-               or a.member.id in :cheererIds
-            order by
-               case when a.member.id in :friendIds then 0 else 1 end,
-               a.createdAt desc
+            SELECT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE (a.member.id IN :friendIds
+                 OR a.member.id IN :cheererIds)
+               AND b.id IS NULL
+             ORDER BY
+                 CASE WHEN a.member.id IN :friendIds THEN 0 ELSE 1 END,
+                 a.createdAt DESC
             """,
             countQuery = """
-                    select count(a)
-                    from Article a
-                    where a.member.id in :friendIds
-                       or a.member.id in :cheererIds
+                    SELECT COUNT(a)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                     WHERE (a.member.id IN :friendIds
+                         OR a.member.id IN :cheererIds)
+                       AND b.id IS NULL
                     """)
     Page<Article> findCombinedFeed(
             @Param("friendIds") Collection<UUID> friendIds,
             @Param("cheererIds") Collection<UUID> cheererIds,
-            Pageable pageable
+            @ParameterObject Pageable pageable
     );
 
     @Modifying(flushAutomatically = true)
