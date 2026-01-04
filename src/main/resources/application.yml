@@ -1,6 +1,6 @@
 spring:
-  profiles:
-    active: local
+#  profiles:
+#    active: local
 
   config:
     import:
@@ -19,7 +19,7 @@ spring:
         registration:
           cognito:
             client-id: 6mp9rrcnrl8h8hd7tuubj3689u
-            client-secret: ${DOC_LOGIN_CLIENT_SECRET}
+            client-secret: h9h4h81enribm0lbjqabvbarksngtt0hidk0nttab5tllmg6ke0
             scope:
               - email
               - openid
