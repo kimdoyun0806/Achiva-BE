@@ -77,4 +77,12 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
 
     @Query("SELECT a FROM Article a WHERE a.member.id = :memberId AND a.category = :category ORDER BY a.createdAt DESC")
     Page<Article> findByMemberIdWithCategory(UUID memberId, Category category, Pageable pageable);
+
+    /**
+     * 전체 게시글을 최신순으로 조회합니다.
+     * N+1 문제 방지를 위해 member를 fetch join합니다.
+     * 소프트 삭제된 게시글은 제외됩니다 (BaseEntity의 isDeleted 필드 활용).
+     */
+    @EntityGraph(attributePaths = "member")
+    Page<Article> findAllByIsDeletedFalse(Pageable pageable);
 }
