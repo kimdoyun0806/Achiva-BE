@@ -299,4 +299,16 @@ public class ArticleService {
         return articleRepository.findByMemberIdWithCategory(memberId, Category.fromDisplayName(category), pageable)
                 .map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
     }
+
+    public Page<ArticleWithBookResponse> getAllArticlesFeed(Pageable pageable) {
+        // 기본 정렬 보정: createdAt DESC
+        Pageable sorted = pageable;
+        if (pageable.getSort().isUnsorted()) {
+            sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                    Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+
+        Page<Article> page = articleRepository.findAllByIsDeletedFalse(sorted);
+        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+    }
 }
