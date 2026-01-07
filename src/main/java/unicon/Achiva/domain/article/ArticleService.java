@@ -311,4 +311,19 @@ public class ArticleService {
         Page<Article> page = articleRepository.findAllByIsDeletedFalse(sorted);
         return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
     }
+
+    public Page<ArticleWithBookResponse> getCheeringRelatedArticlesFeed(UUID memberId, Pageable pageable) {
+        // 기본 정렬 보정
+        Pageable sorted = pageable;
+        if (pageable.getSort().isUnsorted()) {
+            sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                    Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+
+        // 응원 관계 사용자들의 게시글 조회
+        Page<Article> page = articleRepository.findByCheeringRelatedMembers(memberId, sorted);
+
+        // ArticleWithBookResponse로 변환
+        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+    }
 }
