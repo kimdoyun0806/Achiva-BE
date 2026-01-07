@@ -74,4 +74,25 @@ public interface CheeringRepository extends JpaRepository<Cheering, Long>, Cheer
     // 멤버의 총 받은 응원 개수
     @Query("select count(c) from Cheering c where c.receiver.id = :memberId")
     long totalReceivedCount(@Param("memberId") UUID memberId);
+
+    /**
+     * 특정 사용자와 응원 관계가 있는 모든 사용자 ID를 조회합니다.
+     * (내가 응원을 보낸 사람 + 나에게 응원을 보낸 사람) - 나 자신
+     *
+     * @param memberId 현재 사용자 ID
+     * @return 응원 관계가 있는 사용자 ID 목록 (중복 제거)
+     */
+    @Query("""
+            select distinct case
+                when c.sender.id = :memberId then c.receiver.id
+                else c.sender.id
+            end
+            from Cheering c
+            where (c.sender.id = :memberId or c.receiver.id = :memberId)
+              and case
+                  when c.sender.id = :memberId then c.receiver.id
+                  else c.sender.id
+              end <> :memberId
+            """)
+    List<UUID> findCheeringRelatedMemberIds(@Param("memberId") UUID memberId);
 }

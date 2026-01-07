@@ -80,9 +80,40 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
 
     /**
      * 전체 게시글을 최신순으로 조회합니다.
-     * N+1 문제 방지를 위해 member를 fetch join합니다.
-     * 소프트 삭제된 게시글은 제외됩니다 (BaseEntity의 isDeleted 필드 활용).
      */
     @EntityGraph(attributePaths = "member")
     Page<Article> findAllByIsDeletedFalse(Pageable pageable);
+
+    /**
+     * 응원 관계가 있는 사용자들이 작성한 게시글을 조회합니다.
+     * @param memberId 현재 사용자 ID
+     * @param pageable 페이징 정보 (기본 20개)
+     * @return 응원 관계 사용자들의 게시글 페이지
+     */
+    @EntityGraph(attributePaths = "member")
+    @Query(value = """
+            SELECT DISTINCT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+              INNER JOIN Cheering c ON (c.sender.id = :memberId AND c.receiver.id = a.member.id AND c.isDeleted = false)
+                                    OR (c.receiver.id = :memberId AND c.sender.id = a.member.id AND c.isDeleted = false)
+             WHERE a.member.id <> :memberId
+               AND a.isDeleted = false
+               AND b.id IS NULL
+             ORDER BY a.createdAt DESC
+            """,
+            countQuery = """
+                    SELECT COUNT(DISTINCT a.id)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                      INNER JOIN Cheering c ON (c.sender.id = :memberId AND c.receiver.id = a.member.id AND c.isDeleted = false)
+                                            OR (c.receiver.id = :memberId AND c.sender.id = a.member.id AND c.isDeleted = false)
+                     WHERE a.member.id <> :memberId
+                       AND a.isDeleted = false
+                       AND b.id IS NULL
+                    """)
+    Page<Article> findByCheeringRelatedMembers(
+            @Param("memberId") UUID memberId,
+            Pageable pageable
+    );
 }

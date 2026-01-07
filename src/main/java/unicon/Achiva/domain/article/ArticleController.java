@@ -152,4 +152,18 @@ public class ArticleController {
         Page<ArticleWithBookResponse> response = articleService.getAllArticlesFeed(pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "전체 게시글 최신순 목록 조회 성공"));
     }
+
+    @Operation(
+            summary = "응원 관계 사용자 게시글 목록 조회",
+            description = "내가 응원을 보낸 사람 + 나에게 응원을 보낸 사람이 작성한 게시글을 최신순으로 조회합니다. "
+    )
+    @GetMapping("/api/articles/cheering-feed")
+    public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getCheeringRelatedArticlesFeed(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @ParameterObject Pageable pageable
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        Page<ArticleWithBookResponse> response = articleService.getCheeringRelatedArticlesFeed(memberId, pageable);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "응원 관계 사용자 게시글 목록 조회 성공"));
+    }
 }
