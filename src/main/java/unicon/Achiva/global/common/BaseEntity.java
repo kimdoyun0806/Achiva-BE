@@ -35,7 +35,7 @@ public abstract class BaseEntity extends AbstractAggregateRoot<BaseEntity> {
         }
     }
 
-    protected void markAsDeleted() {
+    public void markAsDeleted() {
         this.isDeleted = true;
     }
 
