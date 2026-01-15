@@ -32,7 +32,7 @@ public class Article extends UuidBaseEntity {
 //    private Boolean isBookTitle;
 
     @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "varchar(20)")
+    @Column(columnDefinition = "varchar(50)")
     private Category category;
 
     private String backgroundColor;
