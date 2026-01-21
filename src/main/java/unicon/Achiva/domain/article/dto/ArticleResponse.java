@@ -13,7 +13,7 @@ import java.util.UUID;
 @SuperBuilder
 public class ArticleResponse {
     private UUID id;
-    private String photoUrl;
+    private List<String> photoUrls;
     private String title;
     private Category category;
     private List<ArticleRequest.QuestionDTO> question;
@@ -29,7 +29,7 @@ public class ArticleResponse {
     protected static <B extends ArticleResponseBuilder<?, ?>> B initBuilder(B builder, Article article) {
         return (B) builder
                 .id(article.getId())
-                .photoUrl(article.getPhotoUrl())
+                .photoUrls(article.getPhotoUrls())
                 .title(article.getTitle())
                 .category(article.getCategory())
                 .question(

@@ -12,6 +12,7 @@ import unicon.Achiva.domain.article.dto.ArticleRequest;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
 import unicon.Achiva.domain.article.dto.ArticleWithBookResponse;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
+import unicon.Achiva.domain.article.dto.TotalCharacterCountResponse;
 import unicon.Achiva.domain.article.entity.Article;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
 import unicon.Achiva.domain.book.entity.BookArticle;
@@ -30,6 +31,7 @@ import unicon.Achiva.domain.member.infrastructure.MemberCategoryCounterRepositor
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -65,7 +67,7 @@ public class ArticleService {
         dst.setSize(newSeq);
 
         Article article = Article.builder()
-                .photoUrl(request.photoUrl())
+                .photoUrls(request.photoUrls() != null ? new ArrayList<>(request.photoUrls()) : new ArrayList<>())
                 .title(request.title())
                 .category(request.category())
                 .questions(request.question().stream()
@@ -325,5 +327,10 @@ public class ArticleService {
 
         // ArticleWithBookResponse로 변환
         return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+    }
+
+    public TotalCharacterCountResponse getTotalCharacterCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
+        long totalCount = articleRepository.countTotalCharactersByDateRange(memberId, startDate, endDate);
+        return new TotalCharacterCountResponse(totalCount);
     }
 }

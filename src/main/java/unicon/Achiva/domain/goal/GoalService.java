@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import unicon.Achiva.domain.goal.dto.GoalListResponse;
 import unicon.Achiva.domain.goal.dto.GoalRequest;
 import unicon.Achiva.domain.goal.dto.GoalResponse;
+import unicon.Achiva.domain.goal.dto.TotalClickCountResponse;
 import unicon.Achiva.domain.goal.entity.Goal;
 import unicon.Achiva.domain.goal.entity.GoalCategory;
 import unicon.Achiva.domain.goal.infrastructure.GoalRepository;
@@ -15,6 +16,7 @@ import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -210,5 +212,10 @@ public class GoalService {
         goalRepository.save(mindsetGoal3);
 
         log.info("Created 7 default goals for member: {}", memberId);
+    }
+
+    public TotalClickCountResponse getTotalClickCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
+        long totalClickCount = goalRepository.sumClickCountByDateRange(memberId, startDate, endDate);
+        return new TotalClickCountResponse(totalClickCount);
     }
 }
