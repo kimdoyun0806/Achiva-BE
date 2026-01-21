@@ -11,11 +11,11 @@ import unicon.Achiva.global.validation.ValidHexColor;
 
 import java.util.List;
 
-public record ArticleRequest(@URL(protocol = "https") String photoUrl, @NotNull @Size(min = 1, max = 50) String title,
+public record ArticleRequest(@Size(max = 5, message = "사진은 최대 5개까지 업로드 가능합니다") List<@URL(protocol = "https") String> photoUrls, @NotNull @Size(min = 1, max = 50) String title,
                              Category category, List<QuestionDTO> question, @ValidHexColor String backgroundColor) {
 
-    public ArticleRequest(String photoUrl, String title, Category category, List<QuestionDTO> question, String backgroundColor) {
-        this.photoUrl = photoUrl;
+    public ArticleRequest(List<String> photoUrls, String title, Category category, List<QuestionDTO> question, String backgroundColor) {
+        this.photoUrls = photoUrls;
         this.title = title;
         this.category = category;
         this.question = question;

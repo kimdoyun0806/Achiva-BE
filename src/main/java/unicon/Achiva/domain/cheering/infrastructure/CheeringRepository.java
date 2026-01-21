@@ -75,6 +75,17 @@ public interface CheeringRepository extends JpaRepository<Cheering, Long>, Cheer
     @Query("select count(c) from Cheering c where c.receiver.id = :memberId")
     long totalReceivedCount(@Param("memberId") UUID memberId);
 
+    // 멤버의 특정 기간 동안 준 응원 개수
+    @Query("""
+            select count(c) from Cheering c
+            where c.sender.id = :memberId
+            and (:startDate is null or c.createdAt >= :startDate)
+            and (:endDate is null or c.createdAt <= :endDate)
+            """)
+    long totalGivenCountByDateRange(@Param("memberId") UUID memberId,
+                                     @Param("startDate") java.time.LocalDateTime startDate,
+                                     @Param("endDate") java.time.LocalDateTime endDate);
+
     /**
      * 특정 사용자와 응원 관계가 있는 모든 사용자 ID를 조회합니다.
      * (내가 응원을 보낸 사람 + 나에게 응원을 보낸 사람) - 나 자신

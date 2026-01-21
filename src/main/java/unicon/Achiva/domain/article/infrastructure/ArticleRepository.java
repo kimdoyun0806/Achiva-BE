@@ -116,4 +116,25 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             @Param("memberId") UUID memberId,
             Pageable pageable
     );
+
+    /**
+     * 특정 기간 동안 작성한 게시글의 총 글자 수를 조회합니다.
+     * Question의 content 필드만 글자 수로 계산합니다.
+     * @param memberId 사용자 ID
+     * @param startDate 시작 일시 (null이면 제한 없음)
+     * @param endDate 종료 일시 (null이면 제한 없음)
+     * @return 총 글자 수
+     */
+    @Query("""
+            SELECT COALESCE(SUM(LENGTH(q.content)), 0)
+            FROM Article a
+            JOIN a.questions q
+            WHERE a.member.id = :memberId
+            AND a.isDeleted = false
+            AND (:startDate is null or a.createdAt >= :startDate)
+            AND (:endDate is null or a.createdAt <= :endDate)
+            """)
+    long countTotalCharactersByDateRange(@Param("memberId") UUID memberId,
+                                          @Param("startDate") java.time.LocalDateTime startDate,
+                                          @Param("endDate") java.time.LocalDateTime endDate);
 }

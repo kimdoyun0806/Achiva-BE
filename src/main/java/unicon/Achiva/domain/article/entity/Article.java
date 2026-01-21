@@ -25,7 +25,12 @@ import java.util.List;
 @Table(name = "article")
 public class Article extends UuidBaseEntity {
 
-    private String photoUrl;
+    @ElementCollection
+    @CollectionTable(name = "article_photos", joinColumns = @JoinColumn(name = "article_id"))
+    @Column(name = "photo_url")
+    @OrderColumn(name = "photo_order")
+    @Builder.Default
+    private List<String> photoUrls = new ArrayList<>();
 
     private String title;
 
@@ -58,7 +63,10 @@ public class Article extends UuidBaseEntity {
 
     // ---- 로직 ----
     public void update(ArticleRequest request) {
-        this.photoUrl = request.photoUrl();
+        this.photoUrls.clear();
+        if (request.photoUrls() != null) {
+            this.photoUrls.addAll(request.photoUrls());
+        }
         this.title = request.title();
         this.backgroundColor = request.backgroundColor();
 

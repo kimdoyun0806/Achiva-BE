@@ -1,22 +1,26 @@
 package unicon.Achiva.domain.article;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import unicon.Achiva.domain.article.dto.ArticleRequest;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
 import unicon.Achiva.domain.article.dto.ArticleWithBookResponse;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
+import unicon.Achiva.domain.article.dto.TotalCharacterCountResponse;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.s3.S3Service;
 import unicon.Achiva.global.response.ApiResponseForm;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -165,5 +169,27 @@ public class ArticleController {
         UUID memberId = authService.getMemberIdFromToken();
         Page<ArticleWithBookResponse> response = articleService.getCheeringRelatedArticlesFeed(memberId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "응원 관계 사용자 게시글 목록 조회 성공"));
+    }
+
+    @Operation(
+            summary = "특정 기간 동안 본인이 작성한 글의 총 글자 수 조회",
+            description = "기간을 지정하여 본인이 작성한 게시글의 총 글자 수를 조회합니다. " +
+                    "기간을 지정하지 않으면 전체 기간의 글자 수를 조회합니다. " +
+                    "올해 기록만 조회하려면 startDate에 올해 1월 1일 00:00:00을 입력해주세요."
+    )
+    @GetMapping("/api/articles/my-total-character-count")
+    public ResponseEntity<ApiResponseForm<TotalCharacterCountResponse>> getMyTotalCharacterCount(
+            @Parameter(description = "시작 일시 ex) 2024-01-01T00:00:00")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime startDate,
+            @Parameter(description = "종료 일시 ex) 2024-12-31T23:59:59")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime endDate
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        TotalCharacterCountResponse response = articleService.getTotalCharacterCountByDateRange(memberId, startDate, endDate);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 작성한 글의 총 글자 수 조회 성공"));
     }
 }

@@ -1,18 +1,22 @@
 package unicon.Achiva.domain.goal;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.goal.dto.GoalListResponse;
 import unicon.Achiva.domain.goal.dto.GoalRequest;
 import unicon.Achiva.domain.goal.dto.GoalResponse;
+import unicon.Achiva.domain.goal.dto.TotalClickCountResponse;
 import unicon.Achiva.domain.goal.entity.GoalCategory;
 import unicon.Achiva.global.response.ApiResponseForm;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Tag(name = "Goal", description = "목표 관리 API")
@@ -125,5 +129,27 @@ public class GoalController {
         UUID memberId = authService.getMemberIdFromToken();
         goalService.seedDefaultGoals(memberId);
         return ResponseEntity.ok(ApiResponseForm.success(null, "기본 목표 생성 성공"));
+    }
+
+    @Operation(
+            summary = "특정 기간 동안 본인의 목표 클릭 수 합계 조회",
+            description = "기간을 지정하여 본인의 목표들의 클릭 수 합계를 조회합니다. " +
+                    "기간을 지정하지 않으면 전체 기간의 클릭 수를 조회합니다. " +
+                    "올해 기록만 조회하려면 startDate에 올해 1월 1일 00:00:00을 설정하세요."
+    )
+    @GetMapping("/my-total-click-count")
+    public ResponseEntity<ApiResponseForm<TotalClickCountResponse>> getMyTotalClickCount(
+            @Parameter(description = "시작 일시 ex) 2024-01-01T00:00:00")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime startDate,
+            @Parameter(description = "종료 일시 ex) 2024-12-31T23:59:59)")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime endDate
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        TotalClickCountResponse response = goalService.getTotalClickCountByDateRange(memberId, startDate, endDate);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안의 목표 클릭 수 합계 조회 성공"));
     }
 }

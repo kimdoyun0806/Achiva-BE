@@ -9,12 +9,14 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.cheering.dto.*;
 import unicon.Achiva.global.response.ApiResponseForm;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -144,5 +146,27 @@ public class CheeringController {
     ) {
         List<CategoryStatDto> response = cheeringService.getReceivedStats(memberId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저의 받은 응원의 모든 카테고리별 점수 조회 성공"));
+    }
+
+    @Operation(
+            summary = "특정 기간 동안 본인이 보낸 총 응원 점수 조회",
+            description = "기간을 지정하여 본인이 보낸 응원의 총 점수를 조회합니다. " +
+                    "기간을 지정하지 않으면 전체 기간의 점수를 조회합니다. " +
+                    "올해 기록만 조회하려면 startDate에 올해 1월 1일 00:00:00을 설정하세요."
+    )
+    @GetMapping("/api/members/me/cheerings/total-sending-score")
+    public ResponseEntity<ApiResponseForm<TotalSendingCheeringScoreResponse>> getMyTotalSendingCheeringScoreByDateRange(
+            @Parameter(description = "시작 일시 ex) 2024-01-01T00:00:00")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime startDate,
+            @Parameter(description = "종료 일시 ex) 2024-12-31T23:59:59")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime endDate
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        TotalSendingCheeringScoreResponse response = cheeringService.getTotalGivenPointsByDateRange(memberId, startDate, endDate);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 보낸 총 응원 점수 조회 성공"));
     }
 }

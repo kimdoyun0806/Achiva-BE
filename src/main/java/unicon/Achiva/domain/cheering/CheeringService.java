@@ -18,6 +18,7 @@ import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -140,6 +141,12 @@ public class CheeringService {
     public TotalReceivedCheeringScoreResponse getTotalReceivedPoints(UUID memberId) {
         return new TotalReceivedCheeringScoreResponse(
                 cheeringRepository.totalReceivedCount(memberId) * POINTS_PER_CHEER
+        );
+    }
+
+    public TotalSendingCheeringScoreResponse getTotalGivenPointsByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
+        return new TotalSendingCheeringScoreResponse(
+                cheeringRepository.totalGivenCountByDateRange(memberId, startDate, endDate) * POINTS_PER_CHEER
         );
     }
 
