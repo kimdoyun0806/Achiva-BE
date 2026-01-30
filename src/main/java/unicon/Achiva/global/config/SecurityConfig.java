@@ -64,6 +64,10 @@ public class SecurityConfig {
                                 "/api/auth/send-verification-code",
                                 "/api/auth/verify-code"
                         ).permitAll()
+                        // 푸시 관련 API
+                        .requestMatchers("/api/push/link-intent").authenticated()  // Cognito JWT 필요
+                        .requestMatchers("/api/push/register").permitAll()         // linkToken 자체 검증
+                        .requestMatchers("/api/push/send").access(initManager)     // Member 존재 확인 필수
                         // 유저 초기화 확인용
                         .requestMatchers("/api/auth/isinit").authenticated()
                         // CORS preflight 안정성
