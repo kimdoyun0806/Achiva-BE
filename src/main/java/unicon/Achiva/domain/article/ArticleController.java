@@ -17,6 +17,7 @@ import unicon.Achiva.domain.article.dto.ArticleWithBookResponse;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
 import unicon.Achiva.domain.article.dto.TotalCharacterCountResponse;
 import unicon.Achiva.domain.auth.AuthService;
+import unicon.Achiva.domain.category.CategoryCharacterCountResponse;
 import unicon.Achiva.domain.s3.S3Service;
 import unicon.Achiva.global.response.ApiResponseForm;
 
@@ -191,5 +192,27 @@ public class ArticleController {
         UUID memberId = authService.getMemberIdFromToken();
         TotalCharacterCountResponse response = articleService.getTotalCharacterCountByDateRange(memberId, startDate, endDate);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 작성한 글의 총 글자 수 조회 성공"));
+    }
+
+    @Operation(
+            summary = "카테고리별 작성한 글의 글자 수 조회",
+            description = "본인이 작성한 게시글의 카테고리별 글자 수를 조회합니다. " +
+                    "기간을 지정하지 않으면 전체 기간의 글자 수를 조회합니다. " +
+                    "올해 기록만 조회하려면 startDate에 올해 1월 1일 00:00:00을 입력해주세요."
+    )
+    @GetMapping("/api/articles/my-character-count-by-category")
+    public ResponseEntity<ApiResponseForm<CategoryCharacterCountResponse>> getMyCharacterCountByCategory(
+            @Parameter(description = "시작 일시 ex) 2024-01-01T00:00:00")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime startDate,
+            @Parameter(description = "종료 일시 ex) 2024-12-31T23:59:59")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime endDate
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        CategoryCharacterCountResponse response = articleService.getCharacterCountByCategory(memberId, startDate, endDate);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "카테고리별 글자 수 조회 성공"));
     }
 }
