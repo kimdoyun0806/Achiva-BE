@@ -105,4 +105,17 @@ public class MemberController {
                 true,
                 "프로필 사진 업데이트 성공"));
     }
+
+    @Operation(summary = "푸시 알림 사용 여부 토글 (true: 활성화, false: 비활성화)")
+    @PutMapping("/api/members/me/push-enabled/{enabled}")
+    public ResponseEntity<ApiResponseForm<Boolean>> updateMyPushEnabled(
+            @PathVariable boolean enabled
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        memberService.updatePushEnabled(memberId, enabled);
+        return ResponseEntity.ok(ApiResponseForm.success(
+                enabled,
+                "푸시 알림 사용 여부 변경 성공"
+        ));
+    }
 }

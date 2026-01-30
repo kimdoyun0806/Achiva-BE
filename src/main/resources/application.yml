@@ -31,6 +31,12 @@ spring:
             issuer-uri: https://cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_MmVclnRmP
             user-name-attribute: username
 
+app:
+  security:
+    link-token-secret: a3f9c1d8b7e4f2a9c0d1e3f7a8b9c2d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
+
+    link-token-expiry: 300  # 초 단위 (5분)
+
 #logging:
 #  level:
 #    org:

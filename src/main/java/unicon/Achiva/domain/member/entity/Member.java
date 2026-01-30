@@ -63,7 +63,12 @@ public class Member extends BaseEntity {
     @OneToMany(mappedBy = "member", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<Article> articles = new ArrayList<>();
 
-    private boolean pushEnabled;
+    @Builder.Default
+    private boolean pushEnabled = true;
+
+    public void updatePushEnabled(boolean enabled) {
+        this.pushEnabled = enabled;
+    }
 
     public void updateProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;

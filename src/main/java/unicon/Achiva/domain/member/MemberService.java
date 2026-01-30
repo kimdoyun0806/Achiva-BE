@@ -58,4 +58,18 @@ public class MemberService {
 
         member.updateProfileImageUrl(request.getUrl());
     }
+
+    /**
+     * 회원의 푸시 알림 사용 여부를 변경한다.
+     *
+     * @param memberId   회원 식별자
+     * @param enabled    true: 푸시 알림 허용, false: 푸시 알림 비활성화
+     */
+    @Transactional
+    public void updatePushEnabled(UUID memberId, boolean enabled) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+        member.updatePushEnabled(enabled);
+    }
 }
