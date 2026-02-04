@@ -57,13 +57,14 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         // 공개 인증 API (명시적 나열)
                         .requestMatchers(
-                                "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/check-email",
                                 "/api/auth/check-nickname",
                                 "/api/auth/send-verification-code",
                                 "/api/auth/verify-code"
                         ).permitAll()
+                        // 회원가입은 JWT 필요 (authenticated, but Member 존재 불필요)
+                        .requestMatchers("/api/auth/register").authenticated()
                         // 푸시 관련 API
                         .requestMatchers("/api/push/link-intent").authenticated()  // Cognito JWT 필요
                         .requestMatchers("/api/push/register").permitAll()         // linkToken 자체 검증
@@ -166,6 +167,7 @@ public class SecurityConfig {
                 "https://www.achiva.kr/",
                 "https://iworkouttoday.com",
                 "https://container-service-1.wffkggdq3jc9m.ap-northeast-2.cs.amazonlightsail.com",
+                "https://achiva-fe-git-develop-achiva.vercel.app",  // Vercel 개발 환경
                 "http://localhost:8081",
                 "http://localhost:3000",
                 "http://localhost:8080" // 개발용
