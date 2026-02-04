@@ -37,13 +37,13 @@ app:
 
     link-token-expiry: 300  # 초 단위 (5분)
 
-#logging:
-#  level:
-#    org:
-#      springframework:
-#        security: DEBUG
-#        security.oauth2:
-#          client: DEBUG
-#          core: DEBUG
-#          client.endpoint.DefaultAuthorizationCodeTokenResponseClient: TRACE
-#      springframework.web.client: TRACE
+logging:
+  level:
+    org:
+      springframework:
+        security: DEBUG
+        security.oauth2:
+          client: DEBUG
+          core: DEBUG
+          client.endpoint.DefaultAuthorizationCodeTokenResponseClient: TRACE
+      springframework.web.client: TRACE

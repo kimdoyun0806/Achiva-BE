@@ -32,11 +32,23 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseForm.created(createMemberResponse, "회원가입 성공"));
     }
 
-    @Operation(summary = "해당 JWT 토큰의 유저정보 등록여부. - JWT 필요")
+    @Operation(summary = "해당 JWT 토큰의 유저정보 등록여부. Google/Apple 소셜 로그인 사용자는 자동 회원가입 처리됨. - JWT 필요")
     @PostMapping("api/auth/isinit")
     public ResponseEntity<ApiResponseForm<Boolean>> isInit() {
         UUID memberId = authService.getMemberIdFromToken();
         Boolean isInit = memberService.existsById(memberId);
+
+        // Member가 없고 소셜 로그인 사용자이면 자동 회원가입
+        if (!isInit) {
+            try {
+                authService.autoSignupSocialUser();
+                isInit = true;
+            } catch (Exception e) {
+                // 소셜 로그인이 아니거나 자동 회원가입 실패 시 false 반환
+                isInit = false;
+            }
+        }
+
         return ResponseEntity.ok(ApiResponseForm.success(isInit, "회원 등록 확인 결과:" + isInit.toString()));
     }
 
