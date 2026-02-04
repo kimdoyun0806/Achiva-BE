@@ -44,6 +44,13 @@ public class AuthController {
                 authService.autoSignupSocialUser();
                 isInit = true;
             } catch (Exception e) {
+                // 에러 로깅
+                System.err.println("========================================");
+                System.err.println("autoSignupSocialUser 실패");
+                System.err.println("에러 타입: " + e.getClass().getName());
+                System.err.println("에러 메시지: " + e.getMessage());
+                System.err.println("========================================");
+                e.printStackTrace();
                 // 소셜 로그인이 아니거나 자동 회원가입 실패 시 false 반환
                 isInit = false;
             }
