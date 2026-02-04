@@ -164,6 +164,7 @@ public class SecurityConfig {
         // 운영 환경에 맞게 구체적으로 나열
         config.setAllowedOrigins(List.of(
                 "https://www.achiva.kr/",
+                "https://iworkouttoday.com",
                 "https://container-service-1.wffkggdq3jc9m.ap-northeast-2.cs.amazonlightsail.com",
                 "http://localhost:8081",
                 "http://localhost:3000",
