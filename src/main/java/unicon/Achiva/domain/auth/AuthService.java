@@ -246,15 +246,26 @@ public class AuthService {
             throw new GeneralException(MemberErrorCode.INVALID_TOKEN);
         }
 
-        // 방법 1: cognito:groups 확인
+        // 디버깅: JWT 정보 로깅
+        String username = jwtAuth.getToken().getSubject();
         ArrayList<String> cognitoGroups = jwtAuth.getToken().getClaim("cognito:groups");
+        System.err.println("=== isSocialeUser 디버깅 ===");
+        System.err.println("socialProvider: " + _socialProvider);
+        System.err.println("username (sub): " + username);
+        System.err.println("cognito:groups: " + cognitoGroups);
+        System.err.println("===========================");
+
+        // 방법 1: cognito:groups 확인
         var isSocialProviderGroup = cognitoGroups != null && cognitoGroups.size() > 0 && cognitoGroups.stream()
                 .map(String::toLowerCase)
                 .anyMatch(group -> group.contains("signinwith" + _socialProvider));
 
         // 방법 2: username 패턴 확인 (Google/Apple 사용자는 "google_" 또는 "apple_"로 시작)
-        String username = jwtAuth.getToken().getSubject();
         boolean usernameMatches = username != null && username.toLowerCase().startsWith(_socialProvider + "_");
+
+        System.err.println("isSocialProviderGroup: " + isSocialProviderGroup);
+        System.err.println("usernameMatches: " + usernameMatches);
+        System.err.println("결과: " + (isSocialProviderGroup || usernameMatches));
 
         return isSocialProviderGroup || usernameMatches;
     }
