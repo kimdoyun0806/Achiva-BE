@@ -260,4 +260,50 @@ public class AuthService {
     private Boolean isGoogleUser() {
         return isSocialeUser("google");
     }
+
+    /**
+     * 소셜 로그인(Google/Apple) 사용자를 자동으로 회원가입 처리합니다.
+     * 최소한의 정보(email, nickname, 기본 프로필 이미지)만으로 Member를 생성합니다.
+     *
+     * @return 생성된 Member 또는 이미 존재하는 Member
+     */
+    @Transactional
+    public Member autoSignupSocialUser() {
+        UUID memberId = getMemberIdFromToken();
+
+        // 이미 Member가 존재하면 반환
+        if (memberRepository.existsById(memberId)) {
+            return memberRepository.findById(memberId)
+                    .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+        }
+
+        // 소셜 로그인 사용자가 아니면 예외
+        if (!isGoogleUser() && !isAppleUser()) {
+            throw new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND);
+        }
+
+        // 이메일 가져오기
+        String email = getEmailFromToken()
+                .orElse(oidcUserInfoService.getEmailFromUserInfo()
+                        .orElseThrow(() -> new GeneralException(MemberErrorCode.INVALID_TOKEN)));
+
+        // 닉네임 자동 생성
+        String nickName = determineNickname(email);
+
+        // 닉네임 중복 시 랜덤 생성
+        while (memberRepository.existsByNickName(nickName)) {
+            nickName = NicknameGeneratorUtil.generate();
+        }
+
+        // Member 생성
+        Member member = Member.builder()
+                .id(memberId)
+                .email(email)
+                .nickName(nickName)
+                .profileImageUrl("https://achivadata.s3.ap-northeast-2.amazonaws.com/default-profile-image.png")
+                .role(Role.USER)
+                .build();
+
+        return memberRepository.save(member);
+    }
 }
