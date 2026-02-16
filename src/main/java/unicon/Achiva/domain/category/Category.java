@@ -13,19 +13,16 @@ public enum Category {
     BODYWEIGHT("맨몸운동"),
     CROSSFIT("크로스핏"),
 
-    // 유산소 (4)
+    // 유산소 (3)
     RUNNING("러닝"),
     WALKING("걷기"),
     CYCLING("사이클"),
-    HIKING("등산"),
 
-    // 구기종목 (8)
+    // 구기종목 (6)
     SOCCER("축구"),
     BASKETBALL("농구"),
     FUTSAL("풋살"),
     BASEBALL("야구"),
-    BOWLING("볼링"),
-    GOLF("골프"),
     VOLLEYBALL("배구"),
     RUGBY("럭비"),
 
@@ -35,8 +32,12 @@ public enum Category {
     TENNIS("테니스"),
     HOCKEY("하키"),
 
+    // 정밀/과녁
+    BOWLING("볼링"),
+    Golf("골프"),
+
     // 격투/무술 (7)
-    BOXING("복싱/격복싱"),
+    BOXING("복싱"),
     MMA("MMA"),
     JUDO("유도"),
     TAEKWONDO("태권도"),
@@ -52,11 +53,11 @@ public enum Category {
     // 자세 (4)
     YOGA("요가"),
     PILATES("필라테스"),
-    REHABILITATION("교정/재활"),
     STRETCHING("스트레칭"),
 
     // 등반 (1)
     CLIMBING("클라이밍"),
+    HIKING("등산"),
 
     // 스케이트/스키 (4)
     INLINE_SKATING("롤러/인라인"),
