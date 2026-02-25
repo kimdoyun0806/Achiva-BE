@@ -66,8 +66,15 @@ public class Member extends BaseEntity {
     @Builder.Default
     private boolean pushEnabled = true;
 
+    @Builder.Default
+    private boolean friendWorkoutPushEnabled = true;
+
     public void updatePushEnabled(boolean enabled) {
         this.pushEnabled = enabled;
+    }
+
+    public void updateFriendWorkoutPushEnabled(boolean enabled) {
+        this.friendWorkoutPushEnabled = enabled;
     }
 
     public void updateProfileImageUrl(String profileImageUrl) {

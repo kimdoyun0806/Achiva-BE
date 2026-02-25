@@ -118,4 +118,17 @@ public class MemberController {
                 "푸시 알림 사용 여부 변경 성공"
         ));
     }
+
+    @Operation(summary = "친구 운동 게시글 푸시 알림 사용 여부 토글 (true: 활성화, false: 비활성화)")
+    @PutMapping("/api/members/me/friend-workout-push-enabled/{enabled}")
+    public ResponseEntity<ApiResponseForm<Boolean>> updateMyFriendWorkoutPushEnabled(
+            @PathVariable boolean enabled
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        memberService.updateFriendWorkoutPushEnabled(memberId, enabled);
+        return ResponseEntity.ok(ApiResponseForm.success(
+                enabled,
+                "친구 운동 푸시 알림 사용 여부 변경 성공"
+        ));
+    }
 }

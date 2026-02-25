@@ -160,6 +160,29 @@ public class FriendshipService {
         }
     }
 
+    @Transactional
+    public void updatePostPushSetting(Long friendshipId, UUID memberId, boolean allowsPostPush) {
+        Friendship friendship = friendshipRepository.findById(friendshipId)
+                .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
+
+        if (friendship.getStatus() != FriendshipStatus.ACCEPTED) {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FRIENDS);
+        }
+
+        // requester 또는 receiver 중 누가 설정을 변경하는지 확인
+        if (friendship.getReceiver().getId().equals(memberId)) {
+            friendship.updateReceiverAllowsPostPush(allowsPostPush);
+            log.info("[Friendship] Receiver 게시글 푸시 설정 변경 - friendshipId: {}, receiverId: {}, allowsPostPush: {}",
+                    friendshipId, memberId, allowsPostPush);
+        } else if (friendship.getRequester().getId().equals(memberId)) {
+            friendship.updateRequesterAllowsPostPush(allowsPostPush);
+            log.info("[Friendship] Requester 게시글 푸시 설정 변경 - friendshipId: {}, requesterId: {}, allowsPostPush: {}",
+                    friendshipId, memberId, allowsPostPush);
+        } else {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND);
+        }
+    }
+
     /**
      * 친구 요청 푸시 알림 전송
      * 에러 발생 시에도 비즈니스 로직에 영향을 주지 않도록 예외 처리

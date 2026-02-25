@@ -72,4 +72,19 @@ public class MemberService {
 
         member.updatePushEnabled(enabled);
     }
+
+    /**
+     * 회원의 친구 운동 게시글 푸시 알림 사용 여부를 변경한다.
+     *
+     * @param memberId   회원 식별자
+     * @param enabled    true: 친구 운동 푸시 알림 허용, false: 비활성화
+     */
+    @Transactional
+    public void updateFriendWorkoutPushEnabled(UUID memberId, boolean enabled) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+        member.updateFriendWorkoutPushEnabled(enabled);
+        log.info("[Member] 친구 운동 푸시 알림 설정 변경 - memberId: {}, enabled: {}", memberId, enabled);
+    }
 }

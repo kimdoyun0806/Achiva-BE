@@ -31,8 +31,22 @@ public class Friendship extends LongBaseEntity {
     @Enumerated(EnumType.STRING)
     private FriendshipStatus status;
 
+    @Builder.Default
+    private boolean receiverAllowsPostPush = true;
+
+    @Builder.Default
+    private boolean requesterAllowsPostPush = true;
+
     public void updateReceiver(Member receiver) {
         this.receiver = receiver;
+    }
+
+    public void updateReceiverAllowsPostPush(boolean allowsPostPush) {
+        this.receiverAllowsPostPush = allowsPostPush;
+    }
+
+    public void updateRequesterAllowsPostPush(boolean allowsPostPush) {
+        this.requesterAllowsPostPush = allowsPostPush;
     }
 
     public void updateStatus(FriendshipStatus acceptStatus) {
