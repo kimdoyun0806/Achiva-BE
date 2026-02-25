@@ -128,4 +128,15 @@ public class FriendshipController {
         }
         return ResponseEntity.ok(ApiResponseForm.success(null, "친구 신청 취소 성공"));
     }
+
+    @Operation(summary = "친구 게시글 푸시 알림 설정 변경")
+    @PatchMapping("/api/friendships/{friendshipId}/post-push")
+    public ResponseEntity<ApiResponseForm<Void>> updatePostPushSetting(
+            @PathVariable Long friendshipId,
+            @RequestParam boolean allowsPostPush
+    ) {
+        UUID memberId = authService.getMemberIdFromToken();
+        friendshipService.updatePostPushSetting(friendshipId, memberId, allowsPostPush);
+        return ResponseEntity.ok(ApiResponseForm.success(null, "게시글 푸시 알림 설정 변경 성공"));
+    }
 }

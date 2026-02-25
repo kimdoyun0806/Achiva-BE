@@ -27,4 +27,22 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
             """)
     List<UUID> findFriendIdsOf(@Param("me") UUID me,
                                @Param("status") FriendshipStatus status);
+
+    @Query("""
+            select f
+            from Friendship f
+            where f.requester.id = :memberId
+              and f.status = :status
+            """)
+    List<Friendship> findAllByRequesterIdAndStatus(@Param("memberId") UUID memberId,
+                                                    @Param("status") FriendshipStatus status);
+
+    @Query("""
+            select f
+            from Friendship f
+            where (f.requester.id = :memberId or f.receiver.id = :memberId)
+              and f.status = :status
+            """)
+    List<Friendship> findAllAcceptedFriendships(@Param("memberId") UUID memberId,
+                                                 @Param("status") FriendshipStatus status);
 }

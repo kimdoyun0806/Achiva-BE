@@ -14,6 +14,8 @@ import unicon.Achiva.domain.article.dto.ArticleWithBookResponse;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
 import unicon.Achiva.domain.article.dto.TotalCharacterCountResponse;
 import unicon.Achiva.domain.article.entity.Article;
+import unicon.Achiva.domain.article.entity.ArticlePushHistory;
+import unicon.Achiva.domain.article.infrastructure.ArticlePushHistoryRepository;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
 import unicon.Achiva.domain.book.entity.BookArticle;
 import unicon.Achiva.domain.book.infrastructure.BookArticleRepository;
@@ -30,8 +32,11 @@ import unicon.Achiva.domain.member.entity.MemberCategoryKey;
 import unicon.Achiva.domain.member.infrastructure.CounterHelper;
 import unicon.Achiva.domain.member.infrastructure.MemberCategoryCounterRepository;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.push.PushService;
+import unicon.Achiva.domain.push.dto.PushSendRequest;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -50,6 +55,8 @@ public class ArticleService {
     private final CheeringRepository cheeringRepository;
     private final MemberCategoryCounterRepository memberCategoryCounterRepository;
     private final BookArticleRepository bookArticleRepository;
+    private final PushService pushService;
+    private final ArticlePushHistoryRepository articlePushHistoryRepository;
 
 
     @Transactional(readOnly = true)
@@ -89,6 +96,10 @@ public class ArticleService {
     @Transactional
     public ArticleWithBookResponse createArticle(ArticleRequest request, UUID memberId) {
         Article article = createArticleEntity(request, memberId);
+
+        // 게시글 생성 후 친구들에게 푸시 알림 전송
+        sendFriendWorkoutPushNotifications(article);
+
         return ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId()));
     }
 
@@ -359,5 +370,109 @@ public class ArticleService {
                 .collect(Collectors.toList());
 
         return CategoryCharacterCountResponse.fromObjectList(completeResult);
+    }
+
+    /**
+     * 친구들에게 운동 게시글 푸시 알림 전송
+     * PDF 요구사항:
+     * - 친구 중 친구 간 푸쉬알림 동의 유저에게만 발송
+     * - Title: "{닉네임}님이 오늘 운동했어요 💪"
+     * - Body: "나는 오늘 운동했다. 다음은 네 차례야 🔥"
+     * - 제외 대상: 본인, 전체 푸시 OFF, 친구 운동 알림 OFF, 개별 설정 OFF
+     * - 발송 정책: 동일 작성자가 하루에 여러 게시글 올릴 경우 수신자당 하루 1회만 발송
+     */
+    private void sendFriendWorkoutPushNotifications(Article article) {
+        try {
+            UUID authorId = article.getMember().getId();
+            String authorNickname = article.getMember().getNickName();
+            LocalDate today = LocalDate.now();
+
+            // 1. 작성자의 모든 친구 관계 조회 (양방향)
+            List<unicon.Achiva.domain.friendship.entity.Friendship> friendships =
+                    friendshipRepository.findAllAcceptedFriendships(authorId, FriendshipStatus.ACCEPTED);
+
+            // 2. 필터링 및 푸시 전송
+            friendships.forEach(friendship -> {
+                try {
+                    // 작성자가 아닌 쪽이 수신자
+                    Member friendMember;
+                    boolean allowsPostPush;
+
+                    if (friendship.getRequester().getId().equals(authorId)) {
+                        // 작성자가 requester -> receiver가 친구
+                        friendMember = friendship.getReceiver();
+                        allowsPostPush = friendship.isReceiverAllowsPostPush();
+                    } else {
+                        // 작성자가 receiver -> requester가 친구
+                        friendMember = friendship.getRequester();
+                        allowsPostPush = friendship.isRequesterAllowsPostPush();
+                    }
+
+                    UUID receiverId = friendMember.getId();
+
+                    // 전체 푸시 OFF 확인
+                    if (!friendMember.isPushEnabled()) {
+                        log.debug("[Article] 전체 푸시 비활성화 - friendId: {}", receiverId);
+                        return;
+                    }
+
+                    // 친구 운동 알림 OFF 확인
+                    if (!friendMember.isFriendWorkoutPushEnabled()) {
+                        log.debug("[Article] 친구 운동 푸시 비활성화 - friendId: {}", receiverId);
+                        return;
+                    }
+
+                    // 개별 설정 OFF 확인
+                    if (!allowsPostPush) {
+                        log.debug("[Article] 개별 게시글 푸시 비활성화 - friendId: {}", receiverId);
+                        return;
+                    }
+
+                    // 하루 1회 발송 정책: 오늘 이미 보냈는지 확인
+                    boolean alreadySentToday = articlePushHistoryRepository
+                            .existsByAuthorIdAndReceiverIdAndPushDate(authorId, receiverId, today);
+
+                    if (alreadySentToday) {
+                        log.debug("[Article] 오늘 이미 푸시 전송함 - authorId: {}, receiverId: {}", authorId, receiverId);
+                        return;
+                    }
+
+                    String title = String.format("%s님이 오늘 운동했어요 💪", authorNickname);
+                    String body = "나는 오늘 운동했다. 다음은 네 차례야 🔥";
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("type", "friend_workout_post");
+                    data.put("articleId", article.getId().toString());
+                    data.put("fromUserId", authorId.toString());
+
+                    PushSendRequest pushRequest = PushSendRequest.builder()
+                            .targetMemberId(receiverId)
+                            .title(title)
+                            .body(body)
+                            .data(data)
+                            .build();
+
+                    pushService.sendPushNotification(authorId, pushRequest);
+
+                    // 푸시 발송 이력 저장
+                    ArticlePushHistory history = ArticlePushHistory.builder()
+                            .authorId(authorId)
+                            .receiverId(receiverId)
+                            .pushDate(today)
+                            .articleId(article.getId())
+                            .build();
+                    articlePushHistoryRepository.save(history);
+
+                    log.info("[Article] 친구 운동 게시글 푸시 알림 전송 성공 - from: {}, to: {}, articleId: {}",
+                            authorId, receiverId, article.getId());
+                } catch (Exception e) {
+                    log.error("[Article] 친구 운동 게시글 푸시 알림 전송 실패 - error: {}", e.getMessage(), e);
+                }
+            });
+        } catch (Exception e) {
+            // 푸시 전송 실패 시 로그만 남기고 비즈니스 로직은 계속 진행
+            log.error("[Article] 친구 운동 게시글 푸시 알림 전송 중 오류 - articleId: {}, error: {}",
+                    article.getId(), e.getMessage(), e);
+        }
     }
 }
