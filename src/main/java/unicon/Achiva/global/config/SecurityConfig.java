@@ -65,6 +65,8 @@ public class SecurityConfig {
                         ).permitAll()
                         // 회원가입은 JWT 필요 (authenticated, but Member 존재 불필요)
                         .requestMatchers("/api/auth/register").authenticated()
+                        // 회원가입 취소 (JWT 필요, Member 없어도 됨)
+                        .requestMatchers("/api/auth/cancel-signup").authenticated()
                         // 푸시 관련 API
                         .requestMatchers("/api/push/link-intent").authenticated()  // Cognito JWT 필요
                         .requestMatchers("/api/push/register").permitAll()         // linkToken 자체 검증
