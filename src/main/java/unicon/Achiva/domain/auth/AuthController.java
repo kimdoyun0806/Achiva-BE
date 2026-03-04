@@ -57,6 +57,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseForm.success(null, "회원 탈퇴 성공"));
     }
 
+    @Operation(summary = "회원가입 취소 - JWT는 있지만 Member가 없을 때 Cognito 계정 삭제 - JWT 필요")
+    @PostMapping("api/auth/cancel-signup")
+    public ResponseEntity<ApiResponseForm<Void>> cancelSignup() {
+        authService.cancelSignup();
+        return ResponseEntity.ok(ApiResponseForm.success(null, "회원가입 취소 완료. 다시 회원가입을 시도해주세요."));
+    }
+
     @Operation(summary = "이메일 중복 체크 - JWT 필요 X")
     @GetMapping("api/auth/check-email")
     public ResponseEntity<ApiResponseForm<CheckEmailResponse>> checkEmailDuplication(@RequestParam String email) {

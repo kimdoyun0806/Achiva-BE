@@ -13,6 +13,8 @@ public enum MemberErrorCode implements ErrorCode {
     PASSWORD_MISMATCH(1006, "비밀번호와 비밀번호 확인이 일치하지 않습니다", HttpStatus.BAD_REQUEST),
     MEMBER_NOT_FOUND(1007, "회원을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     INVALID_PASSWORD(1008, "비밀번호가 틀렸습니다.", HttpStatus.UNAUTHORIZED),
+    MEMBER_ALREADY_EXISTS(1009, "이미 회원가입이 완료된 사용자입니다.", HttpStatus.CONFLICT),
+    COGNITO_DELETE_FAILED(1010, "Cognito 계정 삭제에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     ;
 
     private final Integer code;

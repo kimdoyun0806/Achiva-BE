@@ -312,4 +312,34 @@ public class AuthService {
 
         return memberRepository.save(member);
     }
+
+    /**
+     * 회원가입 취소: JWT만 있고 Member가 없는 상태에서 Cognito 계정을 삭제합니다.
+     * 회원가입 중단 후 다른 계정으로 재시도할 때 사용합니다.
+     *
+     * @throws GeneralException INVALID_TOKEN: JWT에서 username을 추출할 수 없는 경우
+     */
+    @Transactional
+    public void cancelSignup() {
+        UUID memberId = getMemberIdFromToken();
+        var userName = getUserNameFromToken().orElseThrow(() -> new GeneralException(MemberErrorCode.INVALID_TOKEN));
+
+        log.info("[Auth] Canceling signup for user: {} (sub: {})", userName, memberId);
+
+        // Member가 이미 존재하면 일반 회원탈퇴로 안내
+        if (memberRepository.existsById(memberId)) {
+            log.warn("[Auth] Member already exists. Use DELETE /api/auth for account deletion.");
+            throw new GeneralException(MemberErrorCode.MEMBER_ALREADY_EXISTS);
+        }
+
+        // Cognito 계정 삭제
+        try {
+            cognitoService.globalSignOut(userName);
+            cognitoService.deleteUser(userName);
+            log.info("[Auth] Successfully deleted Cognito user: {}", userName);
+        } catch (Exception e) {
+            log.error("[Auth] Failed to delete Cognito user: {}", userName, e);
+            throw new GeneralException(MemberErrorCode.COGNITO_DELETE_FAILED);
+        }
+    }
 }
