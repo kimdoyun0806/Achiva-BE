@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.member.MemberService;
+import unicon.Achiva.domain.push.dto.PushSettingsResponse;
 import unicon.Achiva.domain.push.dto.*;
 import unicon.Achiva.global.response.ApiResponseForm;
 
@@ -64,8 +65,7 @@ public class PushController {
     @Operation(summary = "Expo 푸시 토큰 등록 - CognitoJWT 불필요")
     @PostMapping("/register")
     public ResponseEntity<PushRegisterResponse> registerPushToken(
-            @Valid @RequestBody PushRegisterRequest request
-    ) {
+            @Valid @RequestBody PushRegisterRequest request) {
         PushRegisterResponse response = pushService.registerPushToken(request);
 
         log.info("[Push API] 푸시 토큰 등록 - expoPushToken: {}", request.getExpoPushToken());
@@ -87,8 +87,7 @@ public class PushController {
     @Operation(summary = "푸시 알림 전송 - targetMemberId null이면 전체 회원 발송, Cognito JWT 필요")
     @PostMapping("/send")
     public ResponseEntity<PushSendResponse> sendPushNotification(
-            @Valid @RequestBody PushSendRequest request
-    ) {
+            @Valid @RequestBody PushSendRequest request) {
         UUID senderId = authService.getMemberIdFromToken();
         PushSendResponse response = pushService.sendPushNotification(senderId, request);
 
@@ -97,17 +96,24 @@ public class PushController {
         return ResponseEntity.ok(response);
     }
 
-
     @Operation(summary = "푸시 알림 사용 여부 설정 (true: 허용, false: 비활성화)")
     @PutMapping("/members/me/push-enabled/{enabled}")
     public ResponseEntity<ApiResponseForm<Boolean>> updateMyPushEnabled(
-            @PathVariable boolean enabled
-    ) {
+            @PathVariable boolean enabled) {
         UUID memberId = authService.getMemberIdFromToken();
         memberService.updatePushEnabled(memberId, enabled);
         return ResponseEntity.ok(ApiResponseForm.success(
                 enabled,
-                "푸시 알림 사용 여부 변경 성공"
-        ));
+                "푸시 알림 사용 여부 변경 성공"));
+    }
+
+    @Operation(summary = "푸시 알림 설정 조회 (전체, 친구 게시글, 친구 개별 설정)")
+    @GetMapping("/settings")
+    public ResponseEntity<ApiResponseForm<PushSettingsResponse>> getMyPushSettings() {
+        UUID memberId = authService.getMemberIdFromToken();
+        PushSettingsResponse response = pushService.getPushSettings(memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(
+                response,
+                "푸시 알림 설정 조회 성공"));
     }
 }
