@@ -112,13 +112,26 @@ public class CheeringController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "응원 읽음 처리 성공"));
     }
 
-    @Operation(summary = "특정 유저 보낸 총 응원 점수 조회")
+    @Operation(
+            summary = "특정 기간 동안 특정 유저가 보낸 총 응원 점수 조회",
+            description = "기간을 지정하여 특정 유저가 보낸 응원의 총 점수를 조회합니다. " +
+                    "기간을 지정하지 않으면 전체 기간의 점수를 조회합니다. " +
+                    "올해 기록만 조회하려면 startDate에 올해 1월 1일 00:00:00을 설정하세요."
+    )
     @GetMapping("/api/members/{memberId}/cheerings/total-sending-score")
     public ResponseEntity<ApiResponseForm<TotalSendingCheeringScoreResponse>> getTotalSendingCheeringScore(
-            @PathVariable UUID memberId
+            @PathVariable UUID memberId,
+            @Parameter(description = "시작 일시 ex) 2024-01-01T00:00:00")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime startDate,
+            @Parameter(description = "종료 일시 ex) 2024-12-31T23:59:59")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime endDate
     ) {
-        TotalSendingCheeringScoreResponse response = cheeringService.getTotalGivenPoints(memberId);
-        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저 보낸 총 응원 점수 조회 성공"));
+        TotalSendingCheeringScoreResponse response = cheeringService.getTotalGivenPointsByDateRange(memberId, startDate, endDate);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 특정 유저가 보낸 총 응원 점수 조회 성공"));
     }
 
     @Operation(summary = "특정 유저 받은 총 응원 점수 조회")
