@@ -159,4 +159,49 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     List<Object[]> countCharactersByCategoryAndDateRange(@Param("memberId") UUID memberId,
                                                           @Param("startDate") java.time.LocalDateTime startDate,
                                                           @Param("endDate") java.time.LocalDateTime endDate);
+
+    /**
+     * \ubaa8\uc784 \ud53c\ub4dc\uc6a9: \ud2b9\uc815 \uba64\ubc84 UUID \ubaa9\ub85d\uc758 \uc774\ubc88 \ub2ec \uac8c\uc2dc\ubb3c\uc744 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uc870\ud68c
+     */
+    @EntityGraph(attributePaths = {"member", "questions"})
+    @Query(value = """
+            SELECT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.member.id IN :memberIds
+               AND a.isDeleted = false
+               AND b.id IS NULL
+               AND a.createdAt >= :startDate
+             ORDER BY a.createdAt DESC
+            """,
+            countQuery = """
+                    SELECT COUNT(a)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                     WHERE a.member.id IN :memberIds
+                       AND a.isDeleted = false
+                       AND b.id IS NULL
+                       AND a.createdAt >= :startDate
+                    """)
+    Page<Article> findByMemberIdsAndCreatedAtAfter(
+            @Param("memberIds") Collection<UUID> memberIds,
+            @Param("startDate") java.time.LocalDateTime startDate,
+            Pageable pageable
+    );
+
+    /**
+     * \ud2b9\uc815 \uba64\ubc84\uc758 \uc774\ubc88 \ub2ec \uac8c\uc2dc\ubb3c \uc218 \uc870\ud68c
+     */
+    @Query("""
+            SELECT a.member.id, COUNT(a)
+              FROM Article a
+             WHERE a.member.id IN :memberIds
+               AND a.isDeleted = false
+               AND a.createdAt >= :startDate
+             GROUP BY a.member.id
+            """)
+    List<Object[]> countMonthlyPostsByMemberIds(
+            @Param("memberIds") Collection<UUID> memberIds,
+            @Param("startDate") java.time.LocalDateTime startDate
+    );
 }
