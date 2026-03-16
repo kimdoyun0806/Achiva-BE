@@ -152,4 +152,26 @@ public class GoalController {
         TotalClickCountResponse response = goalService.getTotalClickCountByDateRange(memberId, startDate, endDate);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안의 목표 클릭 수 합계 조회 성공"));
     }
+
+    @Operation(
+            summary = "특정 기간 동안 특정 유저의 목표 클릭 수 합계 조회",
+            description = "기간을 지정하여 특정 유저의 목표들의 클릭 수 합계를 조회합니다. " +
+                    "기간을 지정하지 않으면 전체 기간의 클릭 수를 조회합니다. " +
+                    "올해 기록만 조회하려면 startDate에 올해 1월 1일 00:00:00을 설정하세요."
+    )
+    @GetMapping("/{memberId}/total-click-count")
+    public ResponseEntity<ApiResponseForm<TotalClickCountResponse>> getMemberTotalClickCount(
+            @PathVariable UUID memberId,
+            @Parameter(description = "시작 일시 ex) 2024-01-01T00:00:00")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime startDate,
+            @Parameter(description = "종료 일시 ex) 2024-12-31T23:59:59)")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime endDate
+    ) {
+        TotalClickCountResponse response = goalService.getTotalClickCountByDateRange(memberId, startDate, endDate);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 특정 유저의 목표 클릭 수 합계 조회 성공"));
+    }
 }
