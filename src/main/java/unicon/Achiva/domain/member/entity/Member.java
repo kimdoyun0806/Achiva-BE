@@ -108,4 +108,8 @@ public class Member extends BaseEntity {
     public void updateDescription(String description) {
         this.description = description;
     }
+
+    public void updateEmail(String email) {
+        this.email = email;
+    }
 }
