@@ -204,4 +204,17 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             @Param("memberIds") Collection<UUID> memberIds,
             @Param("startDate") java.time.LocalDateTime startDate
     );
+
+    @Query("""
+            SELECT a.member.id, COUNT(DISTINCT FUNCTION('DATE', a.createdAt))
+              FROM Article a
+             WHERE a.member.id IN :memberIds
+               AND a.isDeleted = false
+               AND a.createdAt >= :startDate
+             GROUP BY a.member.id
+            """)
+    List<Object[]> countWeeklyActiveDaysByMemberIds(
+            @Param("memberIds") Collection<UUID> memberIds,
+            @Param("startDate") java.time.LocalDateTime startDate
+    );
 }

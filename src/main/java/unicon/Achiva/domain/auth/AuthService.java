@@ -15,11 +15,17 @@ import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.dto.MemberResponse;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.moim.entity.Moim;
+import unicon.Achiva.domain.moim.entity.MoimMember;
+import unicon.Achiva.domain.moim.entity.MoimRole;
+import unicon.Achiva.domain.moim.repository.MoimMemberRepository;
+import unicon.Achiva.domain.moim.repository.MoimRepository;
 import unicon.Achiva.global.response.GeneralException;
 import unicon.Achiva.global.utill.NicknameGeneratorUtil;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,6 +39,8 @@ public class AuthService {
     private final MemberRepository memberRepository;
     private final OIDCUserInfoService oidcUserInfoService;
     private final CognitoService cognitoService;
+    private final MoimRepository moimRepository;
+    private final MoimMemberRepository moimMemberRepository;
 
     @Transactional
     public CreateMemberResponse signup(MemberRequest requestDto) {
@@ -68,8 +76,21 @@ public class AuthService {
 
         Member savedMember = memberRepository.save(member);
 
+        autoJoinOfficialMoims(savedMember);
 
         return CreateMemberResponse.fromEntity(savedMember);
+    }
+
+    private void autoJoinOfficialMoims(Member member) {
+        List<Moim> officialMoims = moimRepository.findByIsOfficialTrue();
+        for (Moim moim : officialMoims) {
+            MoimMember moimMember = MoimMember.builder()
+                    .member(member)
+                    .moim(moim)
+                    .role(MoimRole.MEMBER)
+                    .build();
+            moimMemberRepository.save(moimMember);
+        }
     }
 
     /**
@@ -310,7 +331,9 @@ public class AuthService {
                 .role(Role.USER)
                 .build();
 
-        return memberRepository.save(member);
+        Member savedMember = memberRepository.save(member);
+        autoJoinOfficialMoims(savedMember);
+        return savedMember;
     }
 
     /**

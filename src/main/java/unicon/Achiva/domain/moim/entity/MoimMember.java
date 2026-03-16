@@ -27,5 +27,9 @@ public class MoimMember extends LongBaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MoimRole role;
+
+    public void promoteToLeader() {
+        this.role = MoimRole.LEADER;
+    }
     
 }

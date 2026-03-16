@@ -24,6 +24,7 @@ import unicon.Achiva.domain.moim.repository.MoimMemberRepository;
 import unicon.Achiva.domain.moim.repository.MoimRepository;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -77,9 +78,9 @@ public class MoimService {
         return MoimResponse.from(savedMoim);
     }
 
-    public Page<MoimResponse> getMoims(String keyword, List<Category> categories, Pageable pageable) {
+    public Page<MoimResponse> getMoims(String keyword, List<Category> categories, Boolean isOfficial, Pageable pageable) {
         boolean hasCategories = categories != null && !categories.isEmpty();
-        Page<Moim> moims = moimRepository.findMoimsBySearchAndCategory(keyword, categories, hasCategories, pageable);
+        Page<Moim> moims = moimRepository.findMoimsBySearchAndCategory(keyword, categories, hasCategories, isOfficial, pageable);
         return moims.map(MoimResponse::from);
     }
 
@@ -106,7 +107,21 @@ public class MoimService {
             }
         }
 
-        return MoimDetailResponse.from(moim, currentMemberId, postCountMap);
+        // 이번 주 시작일 (월요일)
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
+
+        // 멤버별 이번 주 스트릭 수
+        Map<UUID, Long> weeklyStreakMap = new HashMap<>();
+        if (!memberIds.isEmpty()) {
+            List<Object[]> streakCounts = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
+            for (Object[] row : streakCounts) {
+                UUID memberId = (UUID) row[0];
+                Long count = (Long) row[1];
+                weeklyStreakMap.put(memberId, count);
+            }
+        }
+
+        return MoimDetailResponse.from(moim, currentMemberId, postCountMap, weeklyStreakMap);
     }
 
     /**
@@ -181,6 +196,52 @@ public class MoimService {
         }
 
         moim.updateSettings(request.getTargetAmount(), request.getPokeDays());
-        return MoimDetailResponse.from(moim, memberId, new HashMap<>());
+        return MoimDetailResponse.from(moim, memberId, new HashMap<>(), new HashMap<>());
+    }
+
+    @Transactional
+    public void leaveMoim(Long moimId, UUID memberId) {
+        Moim moim = moimRepository.findById(moimId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+
+        MoimMember moimMember = moimMemberRepository.findByMoimIdAndMemberId(moimId, memberId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION));
+
+        List<MoimMember> allMembers = moim.getMembers();
+
+        // 방장인 경우: 다른 멤버에게 방장 위임 후 탈퇴
+        if (moimMember.getRole() == MoimRole.LEADER) {
+            // 방장 외 다른 멤버 찾기
+            MoimMember nextLeader = allMembers.stream()
+                    .filter(mm -> !mm.getMember().getId().equals(memberId))
+                    .findFirst()
+                    .orElse(null);
+
+            if (nextLeader != null) {
+                // 다른 멤버에게 방장 위임
+                nextLeader.promoteToLeader();
+            }
+            // nextLeader가 null이면 혼자 있는 모임 → 삭제 없이 그냥 탈퇴 (모임은 남음)
+        }
+
+        moimMemberRepository.delete(moimMember);
+        moim.getMembers().remove(moimMember);
+    }
+
+    @Transactional
+    public void deleteMoim(Long moimId, UUID memberId) {
+        Moim moim = moimRepository.findById(moimId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+
+        boolean isLeader = moim.getMembers().stream()
+                .anyMatch(mm -> mm.getMember().getId().equals(memberId) && mm.getRole() == MoimRole.LEADER);
+
+        if (!isLeader) {
+            throw new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION);
+        }
+
+        // 모임 멤버 전체 삭제 후 모임 삭제
+        moimMemberRepository.deleteAll(moim.getMembers());
+        moimRepository.delete(moim);
     }
 }

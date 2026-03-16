@@ -41,9 +41,10 @@ public class MoimController {
     public ResponseEntity<ApiResponseForm<Page<MoimResponse>>> getMoims(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) List<Category> categories,
+            @RequestParam(required = false) Boolean isOfficial,
             @ParameterObject Pageable pageable
     ) {
-        Page<MoimResponse> response = moimService.getMoims(keyword, categories, pageable);
+        Page<MoimResponse> response = moimService.getMoims(keyword, categories, isOfficial, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 목록 조회 성공"));
     }
 
@@ -95,5 +96,21 @@ public class MoimController {
         UUID memberId = authService.getMemberIdFromToken();
         Page<ArticleResponse> response = moimService.getMoimFeed(id, memberId, PageRequest.of(page, size));
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 피드 조회 성공"));
+    }
+
+    @Operation(summary = "모임 탈퇴")
+    @DeleteMapping("/{id}/members/me")
+    public ResponseEntity<ApiResponseForm<Boolean>> leaveMoim(@PathVariable Long id) {
+        UUID memberId = authService.getMemberIdFromToken();
+        moimService.leaveMoim(id, memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(true, "모임 탈퇴 성공"));
+    }
+
+    @Operation(summary = "모임 삭제 (방장 전용)")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponseForm<Boolean>> deleteMoim(@PathVariable Long id) {
+        UUID memberId = authService.getMemberIdFromToken();
+        moimService.deleteMoim(id, memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(true, "모임 삭제 성공"));
     }
 }

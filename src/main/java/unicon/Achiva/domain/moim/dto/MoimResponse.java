@@ -19,7 +19,9 @@ public class MoimResponse {
     private String leaderName;
     private int memberCount;
     private int maxMember;
+    @com.fasterxml.jackson.annotation.JsonProperty("isPrivate")
     private boolean isPrivate;
+    @com.fasterxml.jackson.annotation.JsonProperty("isOfficial")
     private boolean isOfficial;
 
     public static MoimResponse from(Moim moim) {

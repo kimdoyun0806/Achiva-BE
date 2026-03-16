@@ -9,4 +9,5 @@ public interface MoimMemberRepository extends JpaRepository<MoimMember, Long> {
     List<MoimMember> findByMoimId(Long moimId);
     List<MoimMember> findByMemberId(UUID memberId);
     boolean existsByMoimIdAndMemberId(Long moimId, UUID memberId);
+    java.util.Optional<MoimMember> findByMoimIdAndMemberId(Long moimId, UUID memberId);
 }

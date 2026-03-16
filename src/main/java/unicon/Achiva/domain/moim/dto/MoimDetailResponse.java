@@ -20,7 +20,9 @@ public class MoimDetailResponse {
     private List<Category> categories;
     private int memberCount;
     private int maxMember;
+    @com.fasterxml.jackson.annotation.JsonProperty("isPrivate")
     private boolean isPrivate;
+    @com.fasterxml.jackson.annotation.JsonProperty("isOfficial")
     private boolean isOfficial;
 
     private Long groupGoalCurrent;
@@ -30,11 +32,12 @@ public class MoimDetailResponse {
 
     private List<MoimMemberDto> members;
 
-    public static MoimDetailResponse from(Moim moim, UUID currentUserId, Map<UUID, Long> postCountMap) {
+    public static MoimDetailResponse from(Moim moim, UUID currentUserId, Map<UUID, Long> postCountMap, Map<UUID, Long> weeklyStreakMap) {
         List<MoimMemberDto> memberDtos = moim.getMembers().stream()
                 .map(mm -> {
                     int posts = postCountMap.getOrDefault(mm.getMember().getId(), 0L).intValue();
-                    return MoimMemberDto.from(mm, currentUserId, posts);
+                    int streak = weeklyStreakMap.getOrDefault(mm.getMember().getId(), 0L).intValue();
+                    return MoimMemberDto.from(mm, currentUserId, posts, streak);
                 })
                 .collect(Collectors.toList());
 
