@@ -45,7 +45,9 @@ public class ExpoPushClient {
             "sound", "default",
             "title", title,
             "body", body,
-            "data", data != null ? data : Map.of()
+            "data", data != null ? data : Map.of(),
+            "priority", "high",
+            "channelId", "popup-channel"
         );
 
         return sendToExpo(payload);
@@ -77,7 +79,9 @@ public class ExpoPushClient {
                 "sound", (Object) "default",
                 "title", (Object) title,
                 "body", (Object) body,
-                "data", (Object) (data != null ? data : Map.of())
+                "data", (Object) (data != null ? data : Map.of()),
+                "priority", (Object) "high",
+                "channelId", (Object) "popup-channel"
             ))
             .toList();
 

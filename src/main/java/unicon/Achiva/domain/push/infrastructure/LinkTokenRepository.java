@@ -21,4 +21,10 @@ public interface LinkTokenRepository extends JpaRepository<LinkToken, UUID> {
      * @param dateTime 기준 시각 (이 시각 이전에 만료된 토큰들을 삭제)
      */
     void deleteByExpiresAtBefore(LocalDateTime dateTime);
+
+    /**
+     * 특정 회원의 모든 링크 토큰을 삭제합니다 (회원 탈퇴 시 사용).
+     * @param memberId 회원 ID
+     */
+    void deleteAllByMemberId(UUID memberId);
 }

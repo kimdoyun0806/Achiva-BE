@@ -178,16 +178,47 @@ public class AuthService {
         return MemberResponse.fromEntity(member);
     }
 
+    /**
+     * 회원 탈퇴 처리 (Soft Delete + 익명화 방식)
+     */
     @Transactional
     public void deleteMember(UUID memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
         var userName = getUserNameFromToken().orElseThrow(() -> new GeneralException(MemberErrorCode.INVALID_TOKEN));
 
-        cognitoService.globalSignOut(userName);
-        cognitoService.disableUser(userName);
-        cognitoService.deleteUser(userName);
-        memberRepository.delete(member);
+        // 1. 개인정보 익명화
+        String anonymizedIdPrefix = memberId.toString().substring(0, 8);
+        member.updateNickName("탈퇴한사용자_" + anonymizedIdPrefix);
+        member.updateProfileImageUrl("https://achivadata.s3.ap-northeast-2.amazonaws.com/default-withdrawn.png");
+        member.updateDescription(null);
+        member.updateCategories(new ArrayList<>());
+        member.updateBirth(null);
+        member.updateGender(null);
+        member.updateRegion(null);
+
+        // 이메일 익명화 (중복 방지)
+        String anonymizedEmail = memberId.toString() + "@deleted.achiva.local";
+        member.updateEmail(anonymizedEmail);
+
+        // 2. Soft Delete 마킹
+        member.markAsDeleted();
+
+        // 3. 개인정보 완전 삭제
+        pushTokenRepository.deleteAllByMemberId(memberId);
+        linkTokenRepository.deleteAllByMemberId(memberId);
+
+        // 4. 익명 Member 저장
+        memberRepository.save(member);
+
+        // 5. Cognito 계정 삭제
+        try {
+            cognitoService.globalSignOut(userName);
+            cognitoService.disableUser(userName);
+            cognitoService.deleteUser(userName);
+        } catch (Exception e) {
+            throw new GeneralException(MemberErrorCode.COGNITO_DELETE_FAILED);
+        }
     }
 
     public CheckEmailResponse validateDuplicateEmail(String email) {
