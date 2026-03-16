@@ -20,6 +20,8 @@ import unicon.Achiva.domain.moim.entity.MoimMember;
 import unicon.Achiva.domain.moim.entity.MoimRole;
 import unicon.Achiva.domain.moim.repository.MoimMemberRepository;
 import unicon.Achiva.domain.moim.repository.MoimRepository;
+import unicon.Achiva.domain.push.infrastructure.LinkTokenRepository;
+import unicon.Achiva.domain.push.infrastructure.PushTokenRepository;
 import unicon.Achiva.global.response.GeneralException;
 import unicon.Achiva.global.utill.NicknameGeneratorUtil;
 
@@ -41,6 +43,8 @@ public class AuthService {
     private final CognitoService cognitoService;
     private final MoimRepository moimRepository;
     private final MoimMemberRepository moimMemberRepository;
+    private final PushTokenRepository pushTokenRepository;
+    private final LinkTokenRepository linkTokenRepository;
 
     @Transactional
     public CreateMemberResponse signup(MemberRequest requestDto) {
