@@ -22,6 +22,19 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     @Query("SELECT a.category, COUNT(a) FROM Article a WHERE a.member.id = :memberId GROUP BY a.category")
     List<Object[]> countArticlesByCategoryForMember(@Param("memberId") UUID memberId);
 
+    @Query("""
+            SELECT a.category, COUNT(a)
+              FROM Article a
+             WHERE a.member.id = :memberId
+               AND a.isDeleted = false
+               AND (:startDate is null or a.createdAt >= :startDate)
+               AND (:endDate is null or a.createdAt <= :endDate)
+             GROUP BY a.category
+            """)
+    List<Object[]> countArticlesByCategoryForMemberAndDateRange(@Param("memberId") UUID memberId,
+                                                                @Param("startDate") java.time.LocalDateTime startDate,
+                                                                @Param("endDate") java.time.LocalDateTime endDate);
+
     /**
      * [수정됨] isBookTitle 필드 대신 LEFT JOIN을 사용하여 책의 대표(메인) 아티클을 피드에서 제외합니다.
      * Article(a)을 기준으로 Book(b) 테이블과 LEFT JOIN을 수행합니다.
