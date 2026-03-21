@@ -36,6 +36,7 @@ import unicon.Achiva.domain.push.PushService;
 import unicon.Achiva.domain.push.dto.PushSendRequest;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -191,7 +192,21 @@ public class ArticleService {
 
     public CategoryCountResponse getArticleCountByCategory(UUID memberId) {
         List<Object[]> result = articleRepository.countArticlesByCategoryForMember(memberId);
+        return toCategoryCountResponse(result);
+    }
 
+    public CategoryCountResponse getWeeklyArticleCountByCategory(UUID memberId) {
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
+        List<Object[]> result = articleRepository.countArticlesByCategoryForMemberAndDateRange(
+                memberId,
+                weekStart,
+                null
+        );
+
+        return toCategoryCountResponse(result);
+    }
+
+    private CategoryCountResponse toCategoryCountResponse(List<Object[]> result) {
         // 결과를 Map으로 변환 (key: Category, value: Long)
         Map<Category, Long> categoryCountMap = result.stream()
                 .collect(Collectors.toMap(
