@@ -1,5 +1,6 @@
 package unicon.Achiva.domain.moim;
 
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -104,6 +105,17 @@ public class MoimController {
         UUID memberId = authService.getMemberIdFromToken();
         moimService.leaveMoim(id, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(true, "모임 탈퇴 성공"));
+    }
+
+    @Operation(summary = "모임 멤버 강퇴 (방장 전용)", description = "로그인한 사용자가 해당 모임의 방장일 때 memberId에 해당하는 멤버를 모임에서 제외합니다.")
+    @DeleteMapping("/{id}/members/{memberId}")
+    public ResponseEntity<ApiResponseForm<Boolean>> removeMoimMember(
+            @Parameter(description = "모임 ID") @PathVariable Long id,
+            @Parameter(description = "강퇴할 멤버의 UUID") @PathVariable UUID memberId
+    ) {
+        UUID requesterId = authService.getMemberIdFromToken();
+        moimService.removeMoimMember(id, requesterId, memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(true, "모임 멤버 제외 성공"));
     }
 
     @Operation(summary = "모임 삭제 (방장 전용)")

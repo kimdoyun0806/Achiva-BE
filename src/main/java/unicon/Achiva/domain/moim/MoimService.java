@@ -246,6 +246,29 @@ public class MoimService {
     }
 
     @Transactional
+    public void removeMoimMember(Long moimId, UUID requesterId, UUID targetMemberId) {
+        Moim moim = moimRepository.findById(moimId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+
+        boolean isLeader = moim.getMembers().stream()
+                .anyMatch(mm -> mm.getMember().getId().equals(requesterId) && mm.getRole() == MoimRole.LEADER);
+
+        if (!isLeader) {
+            throw new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION);
+        }
+
+        MoimMember targetMoimMember = moimMemberRepository.findByMoimIdAndMemberId(moimId, targetMemberId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_MEMBER_NOT_FOUND));
+
+        if (targetMoimMember.getRole() == MoimRole.LEADER) {
+            throw new GeneralException(MoimErrorCode.LEADER_CANNOT_BE_REMOVED);
+        }
+
+        moimMemberRepository.delete(targetMoimMember);
+        moim.getMembers().remove(targetMoimMember);
+    }
+
+    @Transactional
     public void deleteMoim(Long moimId, UUID memberId) {
         Moim moim = moimRepository.findById(moimId)
                 .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
