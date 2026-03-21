@@ -3,6 +3,7 @@ package unicon.Achiva.global.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -22,8 +23,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Swagger UI와 OpenAPI 문서를 OIDC 세션으로 보호하고,
- * cognito:groups 기반 ROLE 매핑을 통해 ROLE_DOCS 보유자만 접근을 허용한다.
+ * Swagger UI와 OpenAPI 문서 접근 정책을 환경별로 분리한다.
+ * local 프로필에서는 익명 접근을 허용하고, 그 외 환경에서는 OIDC 세션과 ROLE_DOCS로 보호한다.
  */
 @Configuration
 //@EnableWebSecurity(debug = true)
@@ -36,23 +37,33 @@ public class SwaggerSecurityConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain swaggerOidcChain(HttpSecurity http,
+                                                Environment environment,
                                                 OAuth2UserService<OidcUserRequest, OidcUser> docsOidcUserService,
                                                 AuthenticationSuccessHandler successHandler) throws Exception {
+        boolean localProfileActive = Set.of(environment.getActiveProfiles()).contains("local");
+
         http
                 // Swagger와 OAuth2 관련 경로를 함께 매칭
                 .securityMatcher("/swagger-ui/**", "/v3/api-docs/**", "/login/**", "/oauth2/**", "/api/debug/**")
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-                .authorizeHttpRequests(a -> a
-                                .requestMatchers("/login/**", "/oauth2/**", "/error").permitAll()
-                                .requestMatchers("/api/debug/token").hasRole("DOCS")
-                                .anyRequest().hasRole("DOCS")
-//                                .anyRequest().permitAll()
-                )
-                .oauth2Login(o -> o
-                        .userInfoEndpoint(u -> u.oidcUserService(docsOidcUserService))
-                        .successHandler(successHandler)
-                );
+                .sessionManagement(s -> s.sessionCreationPolicy(
+                        localProfileActive ? SessionCreationPolicy.STATELESS : SessionCreationPolicy.IF_REQUIRED
+                ));
+
+        if (localProfileActive) {
+            http.authorizeHttpRequests(a -> a.anyRequest().permitAll());
+        } else {
+            http.authorizeHttpRequests(a -> a
+                            .requestMatchers("/login/**", "/oauth2/**", "/error").permitAll()
+                            .requestMatchers("/api/debug/token").hasRole("DOCS")
+                            .anyRequest().hasRole("DOCS")
+                    )
+                    .oauth2Login(o -> o
+                            .userInfoEndpoint(u -> u.oidcUserService(docsOidcUserService))
+                            .successHandler(successHandler)
+                    );
+        }
+
         return http.build();
     }
 

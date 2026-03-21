@@ -14,7 +14,7 @@ import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.moim.dto.MoimCreateRequest;
 import unicon.Achiva.domain.moim.dto.MoimDetailResponse;
 import unicon.Achiva.domain.moim.dto.MoimResponse;
-import unicon.Achiva.domain.moim.dto.MoimSettingRequest;
+import unicon.Achiva.domain.moim.dto.MoimUpdateRequest;
 import unicon.Achiva.global.response.ApiResponseForm;
 
 import java.util.List;
@@ -75,11 +75,11 @@ public class MoimController {
         return ResponseEntity.ok(ApiResponseForm.success(true, "모임 가입 성공"));
     }
 
-    @Operation(summary = "모임 설정 변경 (방장 전용)")
+    @Operation(summary = "모임 수정 (방장 전용, 전달한 필드만 반영)")
     @PutMapping("/{id}/settings")
     public ResponseEntity<ApiResponseForm<MoimDetailResponse>> updateMoimSettings(
             @PathVariable Long id,
-            @RequestBody MoimSettingRequest request
+            @RequestBody MoimUpdateRequest request
     ) {
         UUID memberId = authService.getMemberIdFromToken();
         MoimDetailResponse response = moimService.updateMoimSettings(id, memberId, request);
