@@ -41,6 +41,15 @@ public class Friendship extends LongBaseEntity {
         this.receiver = receiver;
     }
 
+    public void updateRequester(Member requester) {
+        this.requester = requester;
+    }
+
+    public void updateParticipants(Member requester, Member receiver) {
+        this.requester = requester;
+        this.receiver = receiver;
+    }
+
     public void updateReceiverAllowsPostPush(boolean allowsPostPush) {
         this.receiverAllowsPostPush = allowsPostPush;
     }
