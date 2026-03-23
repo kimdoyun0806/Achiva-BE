@@ -84,6 +84,14 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponseForm.success(result, "카테고리별 작성 수 조회 성공"));
     }
 
+    @GetMapping("/api/members/{memberId}/weekly-count-by-category")
+    public ResponseEntity<ApiResponseForm<CategoryCountResponse>> getWeeklyArticleCountByCategory(
+            @RequestParam UUID memberId
+    ) {
+        CategoryCountResponse result = articleService.getWeeklyArticleCountByCategory(memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(result, "이번 주 카테고리별 작성 수 조회 성공"));
+    }
+
     @Operation(summary = "내 프로필 이미지 조회 API")
     @GetMapping("/api/members/me/image")
     public ResponseEntity<ApiResponseForm<String>> getMyProfileImageUrl() {

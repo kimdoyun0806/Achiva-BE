@@ -16,7 +16,7 @@ import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.domain.moim.dto.MoimCreateRequest;
 import unicon.Achiva.domain.moim.dto.MoimDetailResponse;
 import unicon.Achiva.domain.moim.dto.MoimResponse;
-import unicon.Achiva.domain.moim.dto.MoimSettingRequest;
+import unicon.Achiva.domain.moim.dto.MoimUpdateRequest;
 import unicon.Achiva.domain.moim.entity.Moim;
 import unicon.Achiva.domain.moim.entity.MoimMember;
 import unicon.Achiva.domain.moim.entity.MoimRole;
@@ -49,8 +49,9 @@ public class MoimService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
 
+        boolean isPrivate = Boolean.TRUE.equals(request.getPrivateMoim());
         String encodedPassword = null;
-        if (request.isPrivate() && request.getPassword() != null && !request.getPassword().isBlank()) {
+        if (isPrivate && request.getPassword() != null && !request.getPassword().isBlank()) {
             encodedPassword = request.getPassword(); // 평문 저장 (임시)
         }
 
@@ -58,7 +59,7 @@ public class MoimService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .maxMember(request.getMaxMember())
-                .isPrivate(request.isPrivate())
+                .isPrivate(isPrivate)
                 .password(encodedPassword)
                 .categories(request.getCategories())
                 .isOfficial(false)
@@ -87,6 +88,11 @@ public class MoimService {
     public MoimDetailResponse getMoimDetail(Long moimId, UUID currentMemberId) {
         Moim moim = moimRepository.findById(moimId)
                 .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+
+        return buildMoimDetailResponse(moim, currentMemberId);
+    }
+
+    private MoimDetailResponse buildMoimDetailResponse(Moim moim, UUID currentMemberId) {
 
         // 이번 달 시작일
         LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
@@ -184,7 +190,7 @@ public class MoimService {
     }
 
     @Transactional
-    public MoimDetailResponse updateMoimSettings(Long moimId, UUID memberId, MoimSettingRequest request) {
+    public MoimDetailResponse updateMoimSettings(Long moimId, UUID memberId, MoimUpdateRequest request) {
         Moim moim = moimRepository.findById(moimId)
                 .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
 
@@ -195,8 +201,19 @@ public class MoimService {
             throw new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION);
         }
 
-        moim.updateSettings(request.getTargetAmount(), request.getPokeDays());
-        return MoimDetailResponse.from(moim, memberId, new HashMap<>(), new HashMap<>());
+        moim.update(
+                request.getName(),
+                request.getDescription(),
+                request.getMaxMember(),
+                request.getPrivateMoim(),
+                request.getPassword(),
+                request.getOfficialMoim(),
+                request.getTargetAmount(),
+                request.getPokeDays(),
+                request.getCategories()
+        );
+
+        return buildMoimDetailResponse(moim, memberId);
     }
 
     @Transactional
@@ -226,6 +243,29 @@ public class MoimService {
 
         moimMemberRepository.delete(moimMember);
         moim.getMembers().remove(moimMember);
+    }
+
+    @Transactional
+    public void removeMoimMember(Long moimId, UUID requesterId, UUID targetMemberId) {
+        Moim moim = moimRepository.findById(moimId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+
+        boolean isLeader = moim.getMembers().stream()
+                .anyMatch(mm -> mm.getMember().getId().equals(requesterId) && mm.getRole() == MoimRole.LEADER);
+
+        if (!isLeader) {
+            throw new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION);
+        }
+
+        MoimMember targetMoimMember = moimMemberRepository.findByMoimIdAndMemberId(moimId, targetMemberId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_MEMBER_NOT_FOUND));
+
+        if (targetMoimMember.getRole() == MoimRole.LEADER) {
+            throw new GeneralException(MoimErrorCode.LEADER_CANNOT_BE_REMOVED);
+        }
+
+        moimMemberRepository.delete(targetMoimMember);
+        moim.getMembers().remove(targetMoimMember);
     }
 
     @Transactional

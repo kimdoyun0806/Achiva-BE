@@ -35,7 +35,7 @@ public class FriendshipController {
     @Operation(summary = "친구 신청 수락")
     @PatchMapping("/api/friendships/{friendshipId}/accept")
     public ResponseEntity<ApiResponseForm<FriendshipResponse>> acceptFriendRequest(
-            @RequestParam Long friendshipId
+            @PathVariable Long friendshipId
     ) {
         UUID memberId = authService.getMemberIdFromToken();
         FriendshipResponse response = friendshipService.acceptFriendRequest(friendshipId, memberId);
@@ -45,7 +45,7 @@ public class FriendshipController {
     @Operation(summary = "친구 신청 거절")
     @PatchMapping("/api/friendships/{friendshipId}/reject")
     public ResponseEntity<ApiResponseForm<FriendshipResponse>> rejectFriendRequest(
-            @RequestParam Long friendshipId
+            @PathVariable Long friendshipId
     ) {
         UUID memberId = authService.getMemberIdFromToken();
         FriendshipResponse response = friendshipService.rejectFriendRequest(friendshipId, memberId);
