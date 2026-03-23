@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import unicon.Achiva.domain.article.dto.ArticleRequest;
+import unicon.Achiva.domain.article.dto.ArticleCountResponse;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
 import unicon.Achiva.domain.article.dto.ArticleWithBookResponse;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
@@ -359,6 +360,11 @@ public class ArticleService {
     public TotalCharacterCountResponse getTotalCharacterCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
         long totalCount = articleRepository.countTotalCharactersByDateRange(memberId, startDate, endDate);
         return new TotalCharacterCountResponse(totalCount);
+    }
+
+    public ArticleCountResponse getArticleCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
+        long articleCount = articleRepository.countArticlesByDateRange(memberId, startDate, endDate);
+        return new ArticleCountResponse(articleCount);
     }
 
     public CategoryCharacterCountResponse getCharacterCountByCategory(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {

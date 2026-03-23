@@ -151,6 +151,18 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                                           @Param("startDate") java.time.LocalDateTime startDate,
                                           @Param("endDate") java.time.LocalDateTime endDate);
 
+    @Query("""
+            SELECT COUNT(a)
+            FROM Article a
+            WHERE a.member.id = :memberId
+            AND a.isDeleted = false
+            AND (:startDate is null or a.createdAt >= :startDate)
+            AND (:endDate is null or a.createdAt <= :endDate)
+            """)
+    long countArticlesByDateRange(@Param("memberId") UUID memberId,
+                                  @Param("startDate") java.time.LocalDateTime startDate,
+                                  @Param("endDate") java.time.LocalDateTime endDate);
+
     /**
      * 카테고리별로 작성한 게시글의 글자 수를 조회합니다.
      * Question의 content 필드만 글자 수로 계산합니다.
