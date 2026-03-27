@@ -45,6 +45,12 @@ public class Article extends UuidBaseEntity {
     @Column(name = "author_category_seq", nullable = false)
     private Long authorCategorySeq;
 
+    @Column(name = "weekly_workout_count")
+    private Integer weeklyWorkoutCount;
+
+    @Column(name = "continuous_goal_weeks")
+    private Integer continuousGoalWeeks;
+
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Question> questions;
 
@@ -69,6 +75,12 @@ public class Article extends UuidBaseEntity {
         }
         this.title = request.title();
         this.backgroundColor = request.backgroundColor();
+        if (request.weeklyWorkoutCount() != null) {
+            this.weeklyWorkoutCount = request.weeklyWorkoutCount();
+        }
+        if (request.continuousGoalWeeks() != null) {
+            this.continuousGoalWeeks = request.continuousGoalWeeks();
+        }
 
         this.questions.clear();
         for (ArticleRequest.QuestionDTO questionDTO : request.question()) {

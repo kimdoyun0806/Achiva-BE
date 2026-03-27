@@ -242,4 +242,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             @Param("memberIds") Collection<UUID> memberIds,
             @Param("startDate") java.time.LocalDateTime startDate
     );
+
+    @Query("SELECT a.createdAt FROM Article a WHERE a.member.id = :memberId AND a.isDeleted = false ORDER BY a.createdAt DESC")
+    List<java.time.LocalDateTime> findAllCreatedAtByMemberId(@Param("memberId") UUID memberId);
 }

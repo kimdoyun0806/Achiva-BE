@@ -102,6 +102,14 @@ public class MemberController {
                 "내 프로필 이미지 조회 성공"));
     }
 
+    @Operation(summary = "내 기록 통계 조회 API (주간 운동 횟수, 연속 달성 주차)")
+    @GetMapping("/api/members/me/stats")
+    public ResponseEntity<ApiResponseForm<unicon.Achiva.domain.member.dto.MemberStatsResponse>> getMyStats() {
+        UUID memberId = authService.getMemberIdFromToken();
+        unicon.Achiva.domain.member.dto.MemberStatsResponse stats = articleService.getMemberStats(memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(stats, "내 기록 통계 조회 성공"));
+    }
+
     @Operation(summary = "내 프로필 이미지 수정 API. presigned URL 발급 및 업로드가 선행되어야 함.")
     @PutMapping("/api/members/me/image")
     public ResponseEntity<ApiResponseForm<Boolean>> confirmProfileImageUpload(
