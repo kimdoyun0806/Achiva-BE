@@ -33,6 +33,8 @@ import unicon.Achiva.domain.member.entity.MemberCategoryKey;
 import unicon.Achiva.domain.member.infrastructure.CounterHelper;
 import unicon.Achiva.domain.member.infrastructure.MemberCategoryCounterRepository;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.moim.entity.MoimScore;
+import unicon.Achiva.domain.moim.repository.MoimScoreRepository;
 import unicon.Achiva.domain.push.PushService;
 import unicon.Achiva.domain.push.dto.PushSendRequest;
 import unicon.Achiva.global.response.GeneralException;
@@ -59,6 +61,7 @@ public class ArticleService {
     private final BookArticleRepository bookArticleRepository;
     private final PushService pushService;
     private final ArticlePushHistoryRepository articlePushHistoryRepository;
+    private final MoimScoreRepository moimScoreRepository;
 
 
     @Transactional(readOnly = true)
@@ -91,6 +94,7 @@ public class ArticleService {
         article.getQuestions().forEach(q -> q.setArticle(article));
 
         articleRepository.save(article);
+        increaseMoimScores(article);
 
         return article;
     }
@@ -171,7 +175,29 @@ public class ArticleService {
         articleRepository.shiftLeft(memberId, cat, seq);
         counter.setSize(counter.getSize() - 1);
 
+        decreaseMoimScores(article);
         articleRepository.delete(article);
+    }
+
+    private void increaseMoimScores(Article article) {
+        List<MoimScore> activeScores = moimScoreRepository.findActiveScoresByMemberId(article.getMember().getId());
+        for (MoimScore moimScore : activeScores) {
+            moimScore.increaseScore();
+            moimScore.getMoim().increaseScore();
+        }
+    }
+
+    private void decreaseMoimScores(Article article) {
+        LocalDateTime articleCreatedAt = Optional.ofNullable(article.getCreatedAt()).orElse(LocalDateTime.now());
+        List<MoimScore> targetScores = moimScoreRepository.findScoresContainingArticleCreatedAt(
+                article.getMember().getId(),
+                articleCreatedAt
+        );
+
+        for (MoimScore moimScore : targetScores) {
+            moimScore.decreaseScore();
+            moimScore.getMoim().decreaseScore();
+        }
     }
 
     public ArticleResponse getArticle(UUID articleId) {

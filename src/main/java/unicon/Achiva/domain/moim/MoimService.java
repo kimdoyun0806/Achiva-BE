@@ -20,8 +20,10 @@ import unicon.Achiva.domain.moim.dto.MoimUpdateRequest;
 import unicon.Achiva.domain.moim.entity.Moim;
 import unicon.Achiva.domain.moim.entity.MoimMember;
 import unicon.Achiva.domain.moim.entity.MoimRole;
+import unicon.Achiva.domain.moim.entity.MoimScore;
 import unicon.Achiva.domain.moim.repository.MoimMemberRepository;
 import unicon.Achiva.domain.moim.repository.MoimRepository;
+import unicon.Achiva.domain.moim.repository.MoimScoreRepository;
 import unicon.Achiva.global.response.GeneralException;
 
 import java.time.DayOfWeek;
@@ -43,6 +45,7 @@ public class MoimService {
     private final MoimMemberRepository moimMemberRepository;
     private final MemberRepository memberRepository;
     private final ArticleRepository articleRepository;
+    private final MoimScoreRepository moimScoreRepository;
 
     @Transactional
     public MoimResponse createMoim(MoimCreateRequest request, UUID memberId) {
@@ -75,6 +78,10 @@ public class MoimService {
                 
         moimMemberRepository.save(moimMember);
         savedMoim.getMembers().add(moimMember);
+        moimScoreRepository.save(MoimScore.builder()
+                .moim(savedMoim)
+                .member(member)
+                .build());
 
         return MoimResponse.from(savedMoim);
     }
@@ -96,6 +103,7 @@ public class MoimService {
 
         // 이번 달 시작일
         LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
 
         // 모임 멤버 UUID 목록
         List<UUID> memberIds = moim.getMembers().stream()
@@ -104,21 +112,19 @@ public class MoimService {
 
         // 멤버별 이번 달 게시물 수
         Map<UUID, Long> postCountMap = new HashMap<>();
+        Map<UUID, Long> scoreMap = new HashMap<>();
+        Map<UUID, Long> weeklyStreakMap = new HashMap<>();
+
         if (!memberIds.isEmpty()) {
+            scoreMap = moimScoreRepository.findByMoim_IdAndMember_IdInAndLeftAtIsNull(moim.getId(), memberIds).stream()
+                    .collect(Collectors.toMap(ms -> ms.getMember().getId(), ms -> (long) ms.getScore()));
             List<Object[]> counts = articleRepository.countMonthlyPostsByMemberIds(memberIds, monthStart);
             for (Object[] row : counts) {
                 UUID memberId = (UUID) row[0];
                 Long count = (Long) row[1];
                 postCountMap.put(memberId, count);
             }
-        }
 
-        // 이번 주 시작일 (월요일)
-        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
-
-        // 멤버별 이번 주 스트릭 수
-        Map<UUID, Long> weeklyStreakMap = new HashMap<>();
-        if (!memberIds.isEmpty()) {
             List<Object[]> streakCounts = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
             for (Object[] row : streakCounts) {
                 UUID memberId = (UUID) row[0];
@@ -127,7 +133,7 @@ public class MoimService {
             }
         }
 
-        return MoimDetailResponse.from(moim, currentMemberId, postCountMap, weeklyStreakMap);
+        return MoimDetailResponse.from(moim, currentMemberId, scoreMap, postCountMap, weeklyStreakMap);
     }
 
     /**
@@ -187,6 +193,10 @@ public class MoimService {
                 .build();
 
         moimMemberRepository.save(moimMember);
+        moimScoreRepository.save(MoimScore.builder()
+                .moim(moim)
+                .member(member)
+                .build());
     }
 
     @Transactional
@@ -241,6 +251,8 @@ public class MoimService {
             // nextLeader가 null이면 혼자 있는 모임 → 삭제 없이 그냥 탈퇴 (모임은 남음)
         }
 
+        moimScoreRepository.findByMoim_IdAndMember_IdAndLeftAtIsNull(moimId, memberId)
+                .ifPresent(score -> score.leave(LocalDateTime.now()));
         moimMemberRepository.delete(moimMember);
         moim.getMembers().remove(moimMember);
     }
@@ -264,6 +276,8 @@ public class MoimService {
             throw new GeneralException(MoimErrorCode.LEADER_CANNOT_BE_REMOVED);
         }
 
+        moimScoreRepository.findByMoim_IdAndMember_IdAndLeftAtIsNull(moimId, targetMemberId)
+                .ifPresent(score -> score.leave(LocalDateTime.now()));
         moimMemberRepository.delete(targetMoimMember);
         moim.getMembers().remove(targetMoimMember);
     }
@@ -281,6 +295,7 @@ public class MoimService {
         }
 
         // 모임 멤버 전체 삭제 후 모임 삭제
+        moimScoreRepository.deleteAllByMoim_Id(moimId);
         moimMemberRepository.deleteAll(moim.getMembers());
         moimRepository.delete(moim);
     }

@@ -20,6 +20,7 @@ public class MoimDetailResponse {
     private List<Category> categories;
     private int memberCount;
     private int maxMember;
+    private int score;
     @com.fasterxml.jackson.annotation.JsonProperty("isPrivate")
     private boolean isPrivate;
     @com.fasterxml.jackson.annotation.JsonProperty("isOfficial")
@@ -32,12 +33,19 @@ public class MoimDetailResponse {
 
     private List<MoimMemberDto> members;
 
-    public static MoimDetailResponse from(Moim moim, UUID currentUserId, Map<UUID, Long> postCountMap, Map<UUID, Long> weeklyStreakMap) {
+    public static MoimDetailResponse from(
+            Moim moim,
+            UUID currentUserId,
+            Map<UUID, Long> scoreMap,
+            Map<UUID, Long> postCountMap,
+            Map<UUID, Long> weeklyStreakMap
+    ) {
         List<MoimMemberDto> memberDtos = moim.getMembers().stream()
                 .map(mm -> {
+                    int score = scoreMap.getOrDefault(mm.getMember().getId(), 0L).intValue();
                     int posts = postCountMap.getOrDefault(mm.getMember().getId(), 0L).intValue();
                     int streak = weeklyStreakMap.getOrDefault(mm.getMember().getId(), 0L).intValue();
-                    return MoimMemberDto.from(mm, currentUserId, posts, streak);
+                    return MoimMemberDto.from(mm, currentUserId, score, posts, streak);
                 })
                 .collect(Collectors.toList());
 
@@ -50,6 +58,7 @@ public class MoimDetailResponse {
                 .categories(moim.getCategories())
                 .memberCount(moim.getMemberCount())
                 .maxMember(moim.getMaxMember())
+                .score(moim.getScore())
                 .isPrivate(moim.isPrivate())
                 .isOfficial(moim.isOfficial())
                 .groupGoalCurrent(sum)

@@ -46,6 +46,10 @@ public class Moim extends LongBaseEntity {
     @Column(nullable = false)
     private int pokeDays = 5;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private int score = 0;
+
     @ElementCollection(targetClass = Category.class)
     @Enumerated(EnumType.STRING)
     @OnDelete(action = OnDeleteAction.CASCADE)
@@ -72,6 +76,16 @@ public class Moim extends LongBaseEntity {
     public void updateSettings(int targetAmount, int pokeDays) {
         this.targetAmount = targetAmount;
         this.pokeDays = pokeDays;
+    }
+
+    public void increaseScore() {
+        this.score += 1;
+    }
+
+    public void decreaseScore() {
+        if (this.score > 0) {
+            this.score -= 1;
+        }
     }
 
     public void update(String name,
