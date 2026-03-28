@@ -11,14 +11,16 @@ import java.util.List;
 @SuperBuilder
 public class ArticleWithBookResponse extends ArticleResponse {
     private List<BookArticleInfoResponse> bookArticle;
+    private Long memberArticleCount;
 
-    public static ArticleWithBookResponse fromEntity(Article article, List<BookArticle> bookArticle) {
+    public static ArticleWithBookResponse fromEntity(Article article, List<BookArticle> bookArticle, long memberArticleCount) {
         return initBuilder(ArticleWithBookResponse.builder(), article)
                 .bookArticle(
                         bookArticle.stream()
                                 .map(BookArticleInfoResponse::from)
                                 .toList()
                 )
+                .memberArticleCount(memberArticleCount)
                 .build();
     }
 }
