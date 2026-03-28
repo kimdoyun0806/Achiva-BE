@@ -89,7 +89,18 @@ public class MoimService {
     public Page<MoimResponse> getMoims(String keyword, List<Category> categories, Boolean isOfficial, Pageable pageable) {
         boolean hasCategories = categories != null && !categories.isEmpty();
         Page<Moim> moims = moimRepository.findMoimsBySearchAndCategory(keyword, categories, hasCategories, isOfficial, pageable);
-        return moims.map(MoimResponse::from);
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
+        return moims.map(moim -> {
+            List<UUID> memberIds = moim.getMembers().stream()
+                    .map(mm -> mm.getMember().getId())
+                    .collect(Collectors.toList());
+            long weeklyTotal = 0L;
+            if (!memberIds.isEmpty()) {
+                List<Object[]> rows = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
+                weeklyTotal = rows.stream().mapToLong(r -> (Long) r[1]).sum();
+            }
+            return MoimResponse.from(moim, weeklyTotal);
+        });
     }
 
     public MoimDetailResponse getMoimDetail(Long moimId, UUID currentMemberId) {
@@ -158,9 +169,20 @@ public class MoimService {
 
     public List<MoimResponse> getMyMoims(UUID memberId) {
         List<MoimMember> myMemberships = moimMemberRepository.findByMemberId(memberId);
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
         return myMemberships.stream()
-                .map(MoimMember::getMoim)
-                .map(MoimResponse::from)
+                .map(mm -> {
+                    Moim moim = mm.getMoim();
+                    List<UUID> memberIds = moim.getMembers().stream()
+                            .map(m -> m.getMember().getId())
+                            .collect(Collectors.toList());
+                    long weeklyTotal = 0L;
+                    if (!memberIds.isEmpty()) {
+                        List<Object[]> rows = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
+                        weeklyTotal = rows.stream().mapToLong(r -> (Long) r[1]).sum();
+                    }
+                    return MoimResponse.from(moim, weeklyTotal);
+                })
                 .toList();
     }
 

@@ -20,12 +20,17 @@ public class MoimResponse {
     private int memberCount;
     private int maxMember;
     private int score;
+    private long groupGoalCurrent;  // 이번 주 전체 멤버 게시물 수 (카드 온도 계산용)
     @com.fasterxml.jackson.annotation.JsonProperty("isPrivate")
     private boolean isPrivate;
     @com.fasterxml.jackson.annotation.JsonProperty("isOfficial")
     private boolean isOfficial;
 
     public static MoimResponse from(Moim moim) {
+        return from(moim, 0L);
+    }
+
+    public static MoimResponse from(Moim moim, long weeklyPostCount) {
         String leader = moim.getMembers().stream()
                 .filter(mm -> mm.getRole() == MoimRole.LEADER)
                 .findFirst()
@@ -41,6 +46,7 @@ public class MoimResponse {
                 .memberCount(moim.getMemberCount())
                 .maxMember(moim.getMaxMember())
                 .score(moim.getScore())
+                .groupGoalCurrent(weeklyPostCount)
                 .isPrivate(moim.isPrivate())
                 .isOfficial(moim.isOfficial())
                 .build();
