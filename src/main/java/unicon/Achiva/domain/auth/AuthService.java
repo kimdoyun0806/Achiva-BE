@@ -7,6 +7,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import unicon.Achiva.domain.auth.dto.*;
+import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
 import unicon.Achiva.domain.auth.infrastructure.CognitoService;
 import unicon.Achiva.domain.auth.infrastructure.OIDCUserInfoService;
 import unicon.Achiva.domain.category.Category;
@@ -45,6 +46,7 @@ public class AuthService {
     private final MoimMemberRepository moimMemberRepository;
     private final PushTokenRepository pushTokenRepository;
     private final LinkTokenRepository linkTokenRepository;
+    private final ArticleRepository articleRepository;
 
     @Transactional
     public CreateMemberResponse signup(MemberRequest requestDto) {
@@ -179,7 +181,7 @@ public class AuthService {
         Optional.ofNullable(requestDto.getDescription())
                 .ifPresent(member::updateDescription);
 
-        return MemberResponse.fromEntity(member);
+        return MemberResponse.fromEntity(member, articleRepository.countArticlesByDateRange(memberId, null, null));
     }
 
     /**
