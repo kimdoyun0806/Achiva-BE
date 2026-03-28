@@ -24,7 +24,8 @@ public class ArticleResponse {
     private Long authorCategorySeq;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-//    private boolean isBookTitle;
+    private Integer weeklyWorkoutCount;
+    private Integer continuousGoalWeeks;
 
     protected static <B extends ArticleResponseBuilder<?, ?>> B initBuilder(B builder, Article article) {
         return (B) builder
@@ -43,6 +44,8 @@ public class ArticleResponse {
                 .memberProfileUrl(article.getMember().getProfileImageUrl())
                 .authorCategorySeq(article.getAuthorCategorySeq())
                 .backgroundColor(article.getBackgroundColor())
+                .weeklyWorkoutCount(article.getWeeklyWorkoutCount())
+                .continuousGoalWeeks(article.getContinuousGoalWeeks())
                 .createdAt(article.getCreatedAt())
                 .updatedAt(article.getUpdatedAt());
     }

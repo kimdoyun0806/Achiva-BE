@@ -89,6 +89,8 @@ public class ArticleService {
                 .member(member)
                 .authorCategorySeq(newSeq)
                 .backgroundColor(request.backgroundColor())
+                .weeklyWorkoutCount(request.weeklyWorkoutCount())
+                .continuousGoalWeeks(request.continuousGoalWeeks())
                 .build();
 
         article.getQuestions().forEach(q -> q.setArticle(article));
@@ -255,6 +257,44 @@ public class ArticleService {
                 .collect(Collectors.toList());
 
         return CategoryCountResponse.fromObjectList(completeResult);
+    }
+
+    public unicon.Achiva.domain.member.dto.MemberStatsResponse getMemberStats(UUID memberId) {
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
+        List<Object[]> result = articleRepository.countArticlesByCategoryForMemberAndDateRange(memberId, weekStart, null);
+        
+        int currentWeeklyCount = result.stream().mapToInt(row -> ((Long) row[1]).intValue()).sum();
+        
+        List<LocalDateTime> createdDates = articleRepository.findAllCreatedAtByMemberId(memberId);
+        
+        int continuousWeeks = 0;
+        LocalDate checkDate = LocalDate.now();
+        boolean isCurrentWeek = true;
+
+        while (true) {
+            LocalDate mondayAnchor = checkDate.with(DayOfWeek.MONDAY);
+            Set<LocalDate> activeDays = new HashSet<>();
+            for (LocalDateTime dt : createdDates) {
+                LocalDate date = dt.toLocalDate();
+                if (!date.isBefore(mondayAnchor) && date.isBefore(mondayAnchor.plusDays(7))) {
+                    activeDays.add(date);
+                }
+            }
+            
+            if (activeDays.size() >= 3) {
+                continuousWeeks++;
+                isCurrentWeek = false;
+            } else {
+                if (isCurrentWeek) {
+                    isCurrentWeek = false;
+                } else {
+                    break;
+                }
+            }
+            checkDate = checkDate.minusWeeks(1);
+        }
+        
+        return new unicon.Achiva.domain.member.dto.MemberStatsResponse(currentWeeklyCount, continuousWeeks);
     }
 
     public Page<ArticleWithBookResponse> getHomeArticles(UUID myId, Pageable pageable) {

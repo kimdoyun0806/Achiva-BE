@@ -35,6 +35,15 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                                                                 @Param("startDate") java.time.LocalDateTime startDate,
                                                                 @Param("endDate") java.time.LocalDateTime endDate);
 
+    @Query("""
+            SELECT a.member.id, COUNT(a)
+              FROM Article a
+             WHERE a.member.id IN :memberIds
+               AND a.isDeleted = false
+             GROUP BY a.member.id
+            """)
+    List<Object[]> countArticlesByMemberIds(@Param("memberIds") Collection<UUID> memberIds);
+
     /**
      * [수정됨] isBookTitle 필드 대신 LEFT JOIN을 사용하여 책의 대표(메인) 아티클을 피드에서 제외합니다.
      * Article(a)을 기준으로 Book(b) 테이블과 LEFT JOIN을 수행합니다.
@@ -242,4 +251,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             @Param("memberIds") Collection<UUID> memberIds,
             @Param("startDate") java.time.LocalDateTime startDate
     );
+
+    @Query("SELECT a.createdAt FROM Article a WHERE a.member.id = :memberId AND a.isDeleted = false ORDER BY a.createdAt DESC")
+    List<java.time.LocalDateTime> findAllCreatedAtByMemberId(@Param("memberId") UUID memberId);
 }
