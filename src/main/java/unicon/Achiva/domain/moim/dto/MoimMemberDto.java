@@ -18,6 +18,7 @@ public class MoimMemberDto {
     private int lastActiveDaysAgo;
     private boolean isMe;
     private MoimRole role;
+    private String profileImageUrl;
 
     public static MoimMemberDto from(MoimMember moimMember, UUID currentUserId, int score, int monthlyPosts, int weeklyStreak) {
         boolean isMe = moimMember.getMember().getId().equals(currentUserId);
@@ -31,7 +32,7 @@ public class MoimMemberDto {
                 .lastActiveDaysAgo(0) // TODO: 실제 마지막 활성화 일수 연동 예정
                 .isMe(isMe)
                 .role(moimMember.getRole())
+                .profileImageUrl(moimMember.getMember().getProfileImageUrl())
                 .build();
     }
 }
-
