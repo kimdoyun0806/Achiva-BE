@@ -5,11 +5,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import unicon.Achiva.domain.article.ArticleService;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
 import unicon.Achiva.domain.member.dto.ConfirmProfileImageUploadRequest;
+import unicon.Achiva.domain.member.dto.MemberRankingResponse;
 import unicon.Achiva.domain.member.dto.MemberResponse;
+import unicon.Achiva.domain.member.dto.MemberStatsResponse;
 import unicon.Achiva.domain.member.dto.SearchMemberCondition;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
@@ -28,6 +32,7 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final ArticleRepository articleRepository;
+    private final ArticleService articleService;
 
     public Boolean existsById(UUID memberId) {
         return memberRepository.existsById(memberId);
@@ -58,6 +63,24 @@ public class MemberService {
                 .toList();
 
         return new PageImpl<>(content, pageable, members.getTotalElements());
+    }
+
+    public List<MemberRankingResponse> getMembersForRanking() {
+        List<Member> members = memberRepository.findAll(Sort.by(Sort.Direction.ASC, "nickName"));
+        List<UUID> memberIds = members.stream()
+                .map(Member::getId)
+                .toList();
+
+        Map<UUID, Long> articleCountMap = getArticleCountMap(memberIds);
+        Map<UUID, MemberStatsResponse> memberStatsMap = articleService.getMemberStatsMap(memberIds);
+
+        return members.stream()
+                .map(member -> MemberRankingResponse.from(
+                        member,
+                        articleCountMap.getOrDefault(member.getId(), 0L),
+                        memberStatsMap.getOrDefault(member.getId(), new MemberStatsResponse(0, 0))
+                ))
+                .toList();
     }
 
     /**

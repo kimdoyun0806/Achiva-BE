@@ -24,6 +24,7 @@ import unicon.Achiva.domain.book.infrastructure.BookArticleRepository;
 import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.category.CategoryCharacterCountResponse;
 import unicon.Achiva.domain.category.CategoryCountResponse;
+import unicon.Achiva.domain.category.CategoryRankingResponse;
 import unicon.Achiva.domain.cheering.infrastructure.CheeringRepository;
 import unicon.Achiva.domain.friendship.FriendshipStatus;
 import unicon.Achiva.domain.friendship.infrastructure.FriendshipRepository;
@@ -267,6 +268,34 @@ public class ArticleService {
                 statsSnapshot.weeklyWorkoutCount(),
                 statsSnapshot.continuousGoalWeeks()
         );
+    }
+
+    public Map<UUID, unicon.Achiva.domain.member.dto.MemberStatsResponse> getMemberStatsMap(Collection<UUID> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return Map.of();
+        }
+
+        LocalDate referenceDate = LocalDate.now();
+        Map<UUID, List<LocalDateTime>> createdDatesByMemberId = new HashMap<>();
+        for (Object[] row : articleRepository.findAllCreatedAtByMemberIds(memberIds)) {
+            UUID memberId = (UUID) row[0];
+            LocalDateTime createdAt = (LocalDateTime) row[1];
+            createdDatesByMemberId.computeIfAbsent(memberId, ignored -> new ArrayList<>()).add(createdAt);
+        }
+
+        Map<UUID, unicon.Achiva.domain.member.dto.MemberStatsResponse> statsMap = new HashMap<>();
+        for (UUID memberId : memberIds) {
+            ArticleStatsSnapshot statsSnapshot = calculateStatsSnapshot(
+                    createdDatesByMemberId.getOrDefault(memberId, Collections.emptyList()),
+                    referenceDate
+            );
+            statsMap.put(memberId, new unicon.Achiva.domain.member.dto.MemberStatsResponse(
+                    statsSnapshot.weeklyWorkoutCount(),
+                    statsSnapshot.continuousGoalWeeks()
+            ));
+        }
+
+        return statsMap;
     }
 
     private ArticleStatsSnapshot calculateNewArticleStats(UUID memberId, LocalDateTime createdAt) {
@@ -524,6 +553,37 @@ public class ArticleService {
                 .collect(Collectors.toList());
 
         return CategoryCharacterCountResponse.fromObjectList(completeResult);
+    }
+
+    public CategoryRankingResponse getCategoryRanking() {
+        Map<Category, List<CategoryRankingResponse.CategoryRankingMember>> rankingMap = new LinkedHashMap<>();
+        for (Category category : Category.values()) {
+            rankingMap.put(category, new ArrayList<>());
+        }
+
+        for (Object[] row : articleRepository.countArticlesByCategoryAndMember()) {
+            Category category = (Category) row[0];
+            UUID memberId = (UUID) row[1];
+            String nickName = (String) row[2];
+            String profileImageUrl = (String) row[3];
+            Long articleCount = (Long) row[4];
+
+            rankingMap.get(category).add(new CategoryRankingResponse.CategoryRankingMember(
+                    memberId,
+                    nickName,
+                    profileImageUrl,
+                    articleCount
+            ));
+        }
+
+        List<CategoryRankingResponse.CategoryRanking> categories = rankingMap.entrySet().stream()
+                .map(entry -> new CategoryRankingResponse.CategoryRanking(
+                        Category.getDisplayName(entry.getKey()),
+                        entry.getValue()
+                ))
+                .toList();
+
+        return new CategoryRankingResponse(categories);
     }
 
     /**

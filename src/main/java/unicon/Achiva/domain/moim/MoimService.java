@@ -15,6 +15,7 @@ import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.domain.moim.dto.MoimCreateRequest;
 import unicon.Achiva.domain.moim.dto.MoimDetailResponse;
+import unicon.Achiva.domain.moim.dto.MoimRankingResponse;
 import unicon.Achiva.domain.moim.dto.MoimResponse;
 import unicon.Achiva.domain.moim.dto.MoimUpdateRequest;
 import unicon.Achiva.domain.moim.entity.Moim;
@@ -99,6 +100,34 @@ public class MoimService {
         return buildMoimDetailResponse(moim, currentMemberId);
     }
 
+    public List<MoimRankingResponse> getMoimsForRanking() {
+        List<Moim> moims = moimRepository.findAllWithMembers();
+        if (moims.isEmpty()) {
+            return List.of();
+        }
+
+        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        List<UUID> memberIds = moims.stream()
+                .flatMap(moim -> moim.getMembers().stream())
+                .map(mm -> mm.getMember().getId())
+                .distinct()
+                .toList();
+
+        Map<UUID, Long> monthlyPostCountMap = getMonthlyPostCountMap(memberIds, monthStart);
+
+        return moims.stream()
+                .sorted(java.util.Comparator.comparing(Moim::getId))
+                .map(moim -> {
+                    long groupGoalCurrent = moim.getMembers().stream()
+                            .map(MoimMember::getMember)
+                            .map(Member::getId)
+                            .mapToLong(memberId -> monthlyPostCountMap.getOrDefault(memberId, 0L))
+                            .sum();
+                    return MoimRankingResponse.from(moim, groupGoalCurrent);
+                })
+                .toList();
+    }
+
     private MoimDetailResponse buildMoimDetailResponse(Moim moim, UUID currentMemberId) {
 
         // 이번 달 시작일
@@ -111,29 +140,50 @@ public class MoimService {
                 .collect(Collectors.toList());
 
         // 멤버별 이번 달 게시물 수
-        Map<UUID, Long> postCountMap = new HashMap<>();
-        Map<UUID, Long> scoreMap = new HashMap<>();
-        Map<UUID, Long> weeklyStreakMap = new HashMap<>();
-
-        if (!memberIds.isEmpty()) {
-            scoreMap = moimScoreRepository.findByMoim_IdAndMember_IdInAndLeftAtIsNull(moim.getId(), memberIds).stream()
-                    .collect(Collectors.toMap(ms -> ms.getMember().getId(), ms -> (long) ms.getScore()));
-            List<Object[]> counts = articleRepository.countMonthlyPostsByMemberIds(memberIds, monthStart);
-            for (Object[] row : counts) {
-                UUID memberId = (UUID) row[0];
-                Long count = (Long) row[1];
-                postCountMap.put(memberId, count);
-            }
-
-            List<Object[]> streakCounts = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
-            for (Object[] row : streakCounts) {
-                UUID memberId = (UUID) row[0];
-                Long count = (Long) row[1];
-                weeklyStreakMap.put(memberId, count);
-            }
-        }
+        Map<UUID, Long> scoreMap = getScoreMap(moim.getId(), memberIds);
+        Map<UUID, Long> postCountMap = getMonthlyPostCountMap(memberIds, monthStart);
+        Map<UUID, Long> weeklyStreakMap = getWeeklyActiveDayMap(memberIds, weekStart);
 
         return MoimDetailResponse.from(moim, currentMemberId, scoreMap, postCountMap, weeklyStreakMap);
+    }
+
+    private Map<UUID, Long> getScoreMap(Long moimId, List<UUID> memberIds) {
+        if (memberIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        return moimScoreRepository.findByMoim_IdAndMember_IdInAndLeftAtIsNull(moimId, memberIds).stream()
+                .collect(Collectors.toMap(ms -> ms.getMember().getId(), ms -> (long) ms.getScore()));
+    }
+
+    private Map<UUID, Long> getMonthlyPostCountMap(List<UUID> memberIds, LocalDateTime monthStart) {
+        Map<UUID, Long> postCountMap = new HashMap<>();
+        if (memberIds.isEmpty()) {
+            return postCountMap;
+        }
+
+        List<Object[]> counts = articleRepository.countMonthlyPostsByMemberIds(memberIds, monthStart);
+        for (Object[] row : counts) {
+            UUID memberId = (UUID) row[0];
+            Long count = (Long) row[1];
+            postCountMap.put(memberId, count);
+        }
+        return postCountMap;
+    }
+
+    private Map<UUID, Long> getWeeklyActiveDayMap(List<UUID> memberIds, LocalDateTime weekStart) {
+        Map<UUID, Long> weeklyStreakMap = new HashMap<>();
+        if (memberIds.isEmpty()) {
+            return weeklyStreakMap;
+        }
+
+        List<Object[]> streakCounts = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
+        for (Object[] row : streakCounts) {
+            UUID memberId = (UUID) row[0];
+            Long count = (Long) row[1];
+            weeklyStreakMap.put(memberId, count);
+        }
+        return weeklyStreakMap;
     }
 
     /**

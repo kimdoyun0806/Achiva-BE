@@ -254,4 +254,23 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
 
     @Query("SELECT a.createdAt FROM Article a WHERE a.member.id = :memberId AND a.isDeleted = false ORDER BY a.createdAt DESC")
     List<java.time.LocalDateTime> findAllCreatedAtByMemberId(@Param("memberId") UUID memberId);
+
+    @Query("""
+            SELECT a.member.id, a.createdAt
+              FROM Article a
+             WHERE a.member.id IN :memberIds
+               AND a.isDeleted = false
+             ORDER BY a.member.id ASC, a.createdAt DESC
+            """)
+    List<Object[]> findAllCreatedAtByMemberIds(@Param("memberIds") Collection<UUID> memberIds);
+
+    @Query("""
+            SELECT a.category, m.id, m.nickName, m.profileImageUrl, COUNT(a)
+              FROM Article a
+              JOIN a.member m
+             WHERE a.isDeleted = false
+             GROUP BY a.category, m.id, m.nickName, m.profileImageUrl
+             ORDER BY a.category ASC, COUNT(a) DESC, m.nickName ASC
+            """)
+    List<Object[]> countArticlesByCategoryAndMember();
 }

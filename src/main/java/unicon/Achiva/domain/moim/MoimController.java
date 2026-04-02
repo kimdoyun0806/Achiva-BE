@@ -14,6 +14,7 @@ import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.moim.dto.MoimCreateRequest;
 import unicon.Achiva.domain.moim.dto.MoimDetailResponse;
+import unicon.Achiva.domain.moim.dto.MoimRankingResponse;
 import unicon.Achiva.domain.moim.dto.MoimResponse;
 import unicon.Achiva.domain.moim.dto.MoimUpdateRequest;
 import unicon.Achiva.global.response.ApiResponseForm;
@@ -47,6 +48,13 @@ public class MoimController {
     ) {
         Page<MoimResponse> response = moimService.getMoims(keyword, categories, isOfficial, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 목록 조회 성공"));
+    }
+
+    @Operation(summary = "전체 모임 랭킹 데이터 조회", description = "랭킹 기능을 위한 임시 API")
+    @GetMapping("/ranking")
+    public ResponseEntity<ApiResponseForm<List<MoimRankingResponse>>> getMoimsForRanking() {
+        List<MoimRankingResponse> response = moimService.getMoimsForRanking();
+        return ResponseEntity.ok(ApiResponseForm.success(response, "전체 모임 랭킹 데이터 조회 성공"));
     }
 
     @Operation(summary = "내 모임(크루) 목록 조회")

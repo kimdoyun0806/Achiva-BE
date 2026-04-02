@@ -11,12 +11,14 @@ import unicon.Achiva.domain.article.ArticleService;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.category.CategoryCountResponse;
 import unicon.Achiva.domain.member.dto.ConfirmProfileImageUploadRequest;
+import unicon.Achiva.domain.member.dto.MemberRankingResponse;
 import unicon.Achiva.domain.member.dto.MemberResponse;
 import unicon.Achiva.domain.member.dto.SearchMemberCondition;
 import unicon.Achiva.domain.s3.S3Service;
 import unicon.Achiva.global.response.ApiResponseForm;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -63,6 +65,13 @@ public class MemberController {
     ) {
         Page<MemberResponse> members = memberService.getMembers(condition, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(members, "닉네임으로 유저 검색 성공"));
+    }
+
+    @Operation(summary = "전체 유저 랭킹 데이터 조회", description = "랭킹 기능을 위한 임시 API")
+    @GetMapping("/api/members/ranking")
+    public ResponseEntity<ApiResponseForm<List<MemberRankingResponse>>> getMembersForRanking() {
+        List<MemberRankingResponse> members = memberService.getMembersForRanking();
+        return ResponseEntity.ok(ApiResponseForm.success(members, "전체 유저 랭킹 데이터 조회 성공"));
     }
 
     @Operation(summary = "유저 프로필 사진 저장용 presigned URL 발급(이후 회원가입이나 프로필이미지 수정시 쿼리파라미터를 제외한 url을 BE에 보내야함.)")
