@@ -19,14 +19,24 @@ import java.util.UUID;
 public interface ArticleRepository extends JpaRepository<Article, UUID>, ArticleRepositoryCustom {
 
 
-    @Query("SELECT a.category, COUNT(a) FROM Article a WHERE a.member.id = :memberId GROUP BY a.category")
+    @Query("""
+            SELECT a.category, COUNT(a)
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.member.id = :memberId
+               AND a.isDeleted = false
+               AND b.id IS NULL
+             GROUP BY a.category
+            """)
     List<Object[]> countArticlesByCategoryForMember(@Param("memberId") UUID memberId);
 
     @Query("""
             SELECT a.category, COUNT(a)
               FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.member.id = :memberId
                AND a.isDeleted = false
+               AND b.id IS NULL
                AND (:startDate is null or a.createdAt >= :startDate)
                AND (:endDate is null or a.createdAt <= :endDate)
              GROUP BY a.category
@@ -38,8 +48,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     @Query("""
             SELECT a.member.id, COUNT(a)
               FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.member.id IN :memberIds
                AND a.isDeleted = false
+               AND b.id IS NULL
              GROUP BY a.member.id
             """)
     List<Object[]> countArticlesByMemberIds(@Param("memberIds") Collection<UUID> memberIds);
@@ -89,21 +101,87 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                   @Param("category") Category category,
                   @Param("fromSeq") long fromSeq);
 
-
     Page<Article> searchByCondition(SearchArticleCondition condition, Pageable pageable);
 
-    Page<Article> findAllByMemberId(UUID memberId, Pageable pageable);
+    @EntityGraph(attributePaths = "member")
+    @Query(value = """
+            SELECT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.member.id = :memberId
+               AND a.isDeleted = false
+               AND b.id IS NULL
+             ORDER BY a.createdAt DESC
+            """,
+            countQuery = """
+                    SELECT COUNT(a)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                     WHERE a.member.id = :memberId
+                       AND a.isDeleted = false
+                       AND b.id IS NULL
+                    """)
+    Page<Article> findAllByMemberId(@Param("memberId") UUID memberId, Pageable pageable);
 
     @EntityGraph(attributePaths = "member")
-    Page<Article> findByCategoryIn(List<Category> categories, Pageable pageable);
+    @Query(value = """
+            SELECT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.category IN :categories
+               AND a.isDeleted = false
+               AND b.id IS NULL
+            """,
+            countQuery = """
+                    SELECT COUNT(a)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                     WHERE a.category IN :categories
+                       AND a.isDeleted = false
+                       AND b.id IS NULL
+                    """)
+    Page<Article> findByCategoryIn(@Param("categories") List<Category> categories, Pageable pageable);
 
-    @Query("SELECT a FROM Article a WHERE a.member.id = :memberId AND a.category = :category ORDER BY a.createdAt DESC")
-    Page<Article> findByMemberIdWithCategory(UUID memberId, Category category, Pageable pageable);
+    @EntityGraph(attributePaths = "member")
+    @Query(value = """
+            SELECT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.member.id = :memberId
+               AND a.category = :category
+               AND a.isDeleted = false
+               AND b.id IS NULL
+             ORDER BY a.createdAt DESC
+            """,
+            countQuery = """
+                    SELECT COUNT(a)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                     WHERE a.member.id = :memberId
+                       AND a.category = :category
+                       AND a.isDeleted = false
+                       AND b.id IS NULL
+                    """)
+    Page<Article> findByMemberIdWithCategory(@Param("memberId") UUID memberId, @Param("category") Category category, Pageable pageable);
 
     /**
      * 전체 게시글을 최신순으로 조회합니다.
      */
     @EntityGraph(attributePaths = "member")
+    @Query(value = """
+            SELECT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.isDeleted = false
+               AND b.id IS NULL
+            """,
+            countQuery = """
+                    SELECT COUNT(a)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                     WHERE a.isDeleted = false
+                       AND b.id IS NULL
+                    """)
     Page<Article> findAllByIsDeletedFalse(Pageable pageable);
 
     /**
@@ -151,8 +229,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             SELECT COALESCE(SUM(LENGTH(q.content)), 0)
             FROM Article a
             JOIN a.questions q
+            LEFT JOIN Book b ON a.id = b.mainArticle.id
             WHERE a.member.id = :memberId
             AND a.isDeleted = false
+            AND b.id IS NULL
             AND (:startDate is null or a.createdAt >= :startDate)
             AND (:endDate is null or a.createdAt <= :endDate)
             """)
@@ -163,8 +243,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     @Query("""
             SELECT COUNT(a)
             FROM Article a
+            LEFT JOIN Book b ON a.id = b.mainArticle.id
             WHERE a.member.id = :memberId
             AND a.isDeleted = false
+            AND b.id IS NULL
             AND (:startDate is null or a.createdAt >= :startDate)
             AND (:endDate is null or a.createdAt <= :endDate)
             """)
@@ -184,8 +266,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             SELECT a.category, COALESCE(SUM(LENGTH(q.content)), 0)
             FROM Article a
             JOIN a.questions q
+            LEFT JOIN Book b ON a.id = b.mainArticle.id
             WHERE a.member.id = :memberId
             AND a.isDeleted = false
+            AND b.id IS NULL
             AND (:startDate is null or a.createdAt >= :startDate)
             AND (:endDate is null or a.createdAt <= :endDate)
             GROUP BY a.category
@@ -229,8 +313,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     @Query("""
             SELECT a.member.id, COUNT(a)
               FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.member.id IN :memberIds
                AND a.isDeleted = false
+               AND b.id IS NULL
                AND a.createdAt >= :startDate
              GROUP BY a.member.id
             """)
@@ -242,8 +328,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     @Query("""
             SELECT a.member.id, COUNT(DISTINCT FUNCTION('DATE', a.createdAt))
               FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.member.id IN :memberIds
                AND a.isDeleted = false
+               AND b.id IS NULL
                AND a.createdAt >= :startDate
              GROUP BY a.member.id
             """)
@@ -252,14 +340,24 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             @Param("startDate") java.time.LocalDateTime startDate
     );
 
-    @Query("SELECT a.createdAt FROM Article a WHERE a.member.id = :memberId AND a.isDeleted = false ORDER BY a.createdAt DESC")
+    @Query("""
+            SELECT a.createdAt
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.member.id = :memberId
+               AND a.isDeleted = false
+               AND b.id IS NULL
+             ORDER BY a.createdAt DESC
+            """)
     List<java.time.LocalDateTime> findAllCreatedAtByMemberId(@Param("memberId") UUID memberId);
 
     @Query("""
             SELECT a.member.id, a.createdAt
               FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.member.id IN :memberIds
                AND a.isDeleted = false
+               AND b.id IS NULL
              ORDER BY a.member.id ASC, a.createdAt DESC
             """)
     List<Object[]> findAllCreatedAtByMemberIds(@Param("memberIds") Collection<UUID> memberIds);
@@ -268,7 +366,9 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             SELECT a.category, m.id, m.nickName, m.profileImageUrl, COUNT(a)
               FROM Article a
               JOIN a.member m
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.isDeleted = false
+               AND b.id IS NULL
              GROUP BY a.category, m.id, m.nickName, m.profileImageUrl
              ORDER BY a.category ASC, COUNT(a) DESC, m.nickName ASC
             """)
