@@ -23,5 +23,13 @@ public interface MoimRepository extends JpaRepository<Moim, Long> {
             @Param("isOfficial") Boolean isOfficial,
             Pageable pageable);
 
+    @Query("""
+            SELECT DISTINCT m
+              FROM Moim m
+              LEFT JOIN FETCH m.members mm
+              LEFT JOIN FETCH mm.member
+            """)
+    List<Moim> findAllWithMembers();
+
     List<Moim> findByIsOfficialTrue();
 }

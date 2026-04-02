@@ -12,6 +12,7 @@ import java.util.UUID;
 public class MoimMemberDto {
     private String id;
     private String name;
+    private String profileImageUrl;
     private int score;
     private int monthlyPosts;
     private int weeklyStreak;
@@ -25,6 +26,7 @@ public class MoimMemberDto {
         return MoimMemberDto.builder()
                 .id(moimMember.getMember().getId().toString())
                 .name(moimMember.getMember().getNickName())
+                .profileImageUrl(moimMember.getMember().getProfileImageUrl())
                 .score(score)
                 .monthlyPosts(monthlyPosts)
                 .weeklyStreak(weeklyStreak)
