@@ -10,7 +10,6 @@ import unicon.Achiva.domain.auth.dto.*;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
 import unicon.Achiva.domain.auth.infrastructure.CognitoService;
 import unicon.Achiva.domain.auth.infrastructure.OIDCUserInfoService;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.Gender;
 import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.dto.MemberResponse;
@@ -76,7 +75,6 @@ public class AuthService {
                 .birth(requestDto.getBirth())
                 .gender(requestDto.getGender() != null ? requestDto.getGender() : null)
                 .region(requestDto.getRegion() != null ? requestDto.getRegion() : null)
-                .categories(requestDto.getCategories())
                 .role(Role.USER)
                 .build();
 
@@ -172,12 +170,6 @@ public class AuthService {
         Optional.ofNullable(requestDto.getRegion())
                 .ifPresent(member::updateRegion);
 
-        Optional.ofNullable(requestDto.getCategories())
-                .map(list -> list.stream()
-                        .map(Category::fromDisplayName)
-                        .toList())
-                .ifPresent(member::updateCategories);
-
         Optional.ofNullable(requestDto.getDescription())
                 .ifPresent(member::updateDescription);
 
@@ -198,7 +190,6 @@ public class AuthService {
         member.updateNickName("탈퇴한사용자_" + anonymizedIdPrefix);
         member.updateProfileImageUrl("https://achivadata.s3.ap-northeast-2.amazonaws.com/default-withdrawn.png");
         member.updateDescription(null);
-        member.updateCategories(new ArrayList<>());
         member.updateBirth(null);
         member.updateGender(null);
         member.updateRegion(null);

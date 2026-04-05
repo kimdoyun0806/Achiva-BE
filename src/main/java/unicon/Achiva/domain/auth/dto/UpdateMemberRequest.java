@@ -4,8 +4,6 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import org.hibernate.validator.constraints.URL;
 
-import java.util.List;
-
 @Getter
 public class UpdateMemberRequest {
     @Size(min = 2, max = 20)
@@ -15,6 +13,5 @@ public class UpdateMemberRequest {
     private String birth;
     private String gender;
     private String region;
-    private List<String> categories;
     private String description;
 }

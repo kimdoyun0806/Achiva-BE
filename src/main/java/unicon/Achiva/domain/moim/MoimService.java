@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
 import unicon.Achiva.domain.article.entity.Article;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
@@ -65,7 +64,6 @@ public class MoimService {
                 .maxMember(request.getMaxMember())
                 .isPrivate(isPrivate)
                 .password(encodedPassword)
-                .categories(request.getCategories())
                 .isOfficial(false)
                 .build();
 
@@ -87,9 +85,8 @@ public class MoimService {
         return MoimResponse.from(savedMoim);
     }
 
-    public Page<MoimResponse> getMoims(String keyword, List<Category> categories, Boolean isOfficial, Pageable pageable) {
-        boolean hasCategories = categories != null && !categories.isEmpty();
-        Page<Moim> moims = moimRepository.findMoimsBySearchAndCategory(keyword, categories, hasCategories, isOfficial, pageable);
+    public Page<MoimResponse> getMoims(String keyword, Boolean isOfficial, Pageable pageable) {
+        Page<Moim> moims = moimRepository.findMoimsBySearchAndCategory(keyword, isOfficial, pageable);
         return moims.map(MoimResponse::from);
     }
 
@@ -269,8 +266,7 @@ public class MoimService {
                 request.getPassword(),
                 request.getOfficialMoim(),
                 request.getTargetAmount(),
-                request.getPokeDays(),
-                request.getCategories()
+                request.getPokeDays()
         );
 
         return buildMoimDetailResponse(moim, memberId);

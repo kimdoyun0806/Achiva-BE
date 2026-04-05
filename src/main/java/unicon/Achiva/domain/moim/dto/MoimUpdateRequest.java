@@ -5,9 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import unicon.Achiva.domain.category.Category;
-
-import java.util.List;
 
 @Getter
 @NoArgsConstructor
@@ -40,7 +37,4 @@ public class MoimUpdateRequest {
 
     @Schema(description = "독려 기준 일수", example = "5")
     private Integer pokeDays;
-
-    @Schema(description = "모임 카테고리 목록")
-    private List<Category> categories;
 }

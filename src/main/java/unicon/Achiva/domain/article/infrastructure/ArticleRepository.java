@@ -128,25 +128,6 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             SELECT a
               FROM Article a
               LEFT JOIN Book b ON a.id = b.mainArticle.id
-             WHERE a.category IN :categories
-               AND a.isDeleted = false
-               AND b.id IS NULL
-            """,
-            countQuery = """
-                    SELECT COUNT(a)
-                      FROM Article a
-                      LEFT JOIN Book b ON a.id = b.mainArticle.id
-                     WHERE a.category IN :categories
-                       AND a.isDeleted = false
-                       AND b.id IS NULL
-                    """)
-    Page<Article> findByCategoryIn(@Param("categories") List<Category> categories, Pageable pageable);
-
-    @EntityGraph(attributePaths = "member")
-    @Query(value = """
-            SELECT a
-              FROM Article a
-              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.member.id = :memberId
                AND a.category = :category
                AND a.isDeleted = false

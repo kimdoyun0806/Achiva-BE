@@ -2,7 +2,6 @@ package unicon.Achiva.domain.moim.dto;
 
 import lombok.Builder;
 import lombok.Getter;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.moim.entity.Moim;
 
 import java.time.temporal.ChronoUnit;
@@ -17,7 +16,6 @@ public class MoimDetailResponse {
     private Long id;
     private String name;
     private String description;
-    private List<Category> categories;
     private int memberCount;
     private int maxMember;
     private int score;
@@ -55,7 +53,6 @@ public class MoimDetailResponse {
                 .id(moim.getId())
                 .name(moim.getName())
                 .description(moim.getDescription())
-                .categories(moim.getCategories())
                 .memberCount(moim.getMemberCount())
                 .maxMember(moim.getMaxMember())
                 .score(moim.getScore())

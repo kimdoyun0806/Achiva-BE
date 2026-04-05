@@ -5,13 +5,11 @@ import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import lombok.Getter;
 import org.hibernate.validator.constraints.URL;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.Gender;
 import unicon.Achiva.domain.member.entity.Member;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -29,7 +27,6 @@ public class CreateMemberResponse {
     private Gender gender;
     @Size(min = 2, max = 100)
     private String region;
-    private List<Category> categories;
     private LocalDateTime createdAt;
 
     public static CreateMemberResponse fromEntity(Member member) {
@@ -41,7 +38,6 @@ public class CreateMemberResponse {
                 .birth(member.getBirth())
                 .gender(member.getGender() != null ? member.getGender() : null)
                 .region(member.getRegion() != null ? member.getRegion() : null)
-                .categories(member.getCategories())
                 .createdAt(member.getCreatedAt())
                 .build();
     }

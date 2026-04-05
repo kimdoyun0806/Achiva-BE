@@ -6,11 +6,9 @@ import lombok.Builder;
 import lombok.Getter;
 import org.hibernate.validator.constraints.URL;
 import org.springframework.validation.annotation.Validated;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.Gender;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Getter
 @Builder
@@ -24,5 +22,4 @@ public class MemberRequest {
     private Gender gender;
     @Size(max = 50)
     private String region;
-    private List<Category> categories;
 }

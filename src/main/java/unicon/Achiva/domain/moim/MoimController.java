@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
 import unicon.Achiva.domain.auth.AuthService;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.moim.dto.MoimCreateRequest;
 import unicon.Achiva.domain.moim.dto.MoimDetailResponse;
 import unicon.Achiva.domain.moim.dto.MoimRankingResponse;
@@ -42,11 +41,10 @@ public class MoimController {
     @GetMapping
     public ResponseEntity<ApiResponseForm<Page<MoimResponse>>> getMoims(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) List<Category> categories,
             @RequestParam(required = false) Boolean isOfficial,
             @ParameterObject Pageable pageable
     ) {
-        Page<MoimResponse> response = moimService.getMoims(keyword, categories, isOfficial, pageable);
+        Page<MoimResponse> response = moimService.getMoims(keyword, isOfficial, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 목록 조회 성공"));
     }
 

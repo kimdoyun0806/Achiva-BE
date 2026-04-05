@@ -138,17 +138,6 @@ public class ArticleController {
         return ResponseEntity.ok(page);
     }
 
-    @Operation(summary = "멤버 관심 카테고리 기반 최신글 게시글 목록")
-    @GetMapping("/api/members/{memberId}/feed")
-    public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getFeed(
-            @PathVariable UUID memberId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            @ParameterObject Pageable pageable
-    ) {
-        Page<ArticleWithBookResponse> response = articleService.getMemberInterestFeed(memberId, pageable);
-        return ResponseEntity.ok(ApiResponseForm.success(response, "멤버 관심 카테고리 기반 최신글 게시글 목록 조회 성공"));
-    }
-
     @Operation(summary = "전체 게시글 최신순 목록 조회")
     @GetMapping("/api/articles/feed")
     public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getAllArticlesFeed(

@@ -4,13 +4,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import unicon.Achiva.domain.auth.Role;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.Gender;
 import unicon.Achiva.domain.member.entity.Member;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -34,9 +32,6 @@ public class MemberResponse {
 
     @Schema(description = "지역", example = "서울")
     private String region;
-
-    @Schema(description = "관심 카테고리 목록")
-    private List<String> categories;
 
     @Schema(description = "프로필 이미지 URL", example = "https://example.com/profile.png")
     private String profileImageUrl;
@@ -62,12 +57,6 @@ public class MemberResponse {
                 .birth(member.getBirth())
                 .gender(member.getGender())
                 .region(member.getRegion())
-                .categories(
-                        member.getCategories()
-                                .stream()
-                                .map(Category::getDisplayName)
-                                .toList()
-                )
                 .profileImageUrl(member.getProfileImageUrl())
                 .description(member.getDescription())
                 .role(member.getRole())
