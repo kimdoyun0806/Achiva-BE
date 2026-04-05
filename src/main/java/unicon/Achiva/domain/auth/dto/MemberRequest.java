@@ -17,6 +17,8 @@ public class MemberRequest {
     @URL(protocol = "https")
     @Builder.Default
     private String profileImageUrl = "https://achivadata.s3.ap-northeast-2.amazonaws.com/default-profile-image.png";
+    @Size(min = 2, max = 20)
+    private String nickName;
     @NotNull
     private LocalDate birth;
     private Gender gender;

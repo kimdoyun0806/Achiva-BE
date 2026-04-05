@@ -50,21 +50,11 @@ public class AuthService {
     @Transactional
     public CreateMemberResponse signup(MemberRequest requestDto) {
         String email = getEmailFromToken().orElse(oidcUserInfoService.getEmailFromUserInfo().orElseThrow(() -> new GeneralException(MemberErrorCode.INVALID_TOKEN)));
-        String nickName = determineNickname(email);
+        String nickName = resolveSignupNickname(requestDto, email);
         boolean emailExists = memberRepository.existsByEmail(email);
-        boolean nickNameExists = memberRepository.existsByNickName(nickName);
 
         if (emailExists) {
             throw new GeneralException(MemberErrorCode.DUPLICATE_EMAIL);
-        }
-        if (nickNameExists) {
-            if (isAppleUser() || isGoogleUser()) {
-                do {
-                    nickName = NicknameGeneratorUtil.generate();
-                } while (memberRepository.existsByNickName(nickName));
-            } else {
-                throw new GeneralException(MemberErrorCode.DUPLICATE_NICKNAME);
-            }
         }
 
         Member member = Member.builder()
@@ -83,6 +73,31 @@ public class AuthService {
         autoJoinOfficialMoims(savedMember);
 
         return CreateMemberResponse.fromEntity(savedMember);
+    }
+
+    private String resolveSignupNickname(MemberRequest requestDto, String email) {
+        String requestedNickName = Optional.ofNullable(requestDto.getNickName())
+                .map(String::trim)
+                .filter(nickName -> !nickName.isBlank())
+                .orElse(null);
+
+        if (requestedNickName != null) {
+            validateDuplicateNickName(requestedNickName);
+            return requestedNickName;
+        }
+
+        String nickName = determineNickname(email);
+        if (memberRepository.existsByNickName(nickName)) {
+            if (isAppleUser() || isGoogleUser()) {
+                do {
+                    nickName = NicknameGeneratorUtil.generate();
+                } while (memberRepository.existsByNickName(nickName));
+            } else {
+                throw new GeneralException(MemberErrorCode.DUPLICATE_NICKNAME);
+            }
+        }
+
+        return nickName;
     }
 
     private void autoJoinOfficialMoims(Member member) {
