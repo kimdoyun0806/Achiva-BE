@@ -184,7 +184,7 @@ public class MoimService {
     }
 
     /**
-     * 이번 달 모임 멤버들이 작성한 게시물 피드
+     * 모임 멤버들이 작성한 게시물 피드
      */
     public Page<ArticleResponse> getMoimFeed(Long moimId, UUID currentMemberId, Pageable pageable) {
         Moim moim = moimRepository.findById(moimId)
@@ -198,17 +198,32 @@ public class MoimService {
             return new PageImpl<>(Collections.emptyList(), pageable, 0);
         }
 
-        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
-        Page<Article> articles = articleRepository.findByMemberIdsAndCreatedAtAfter(memberIds, monthStart, pageable);
+        Page<Article> articles = articleRepository.findByMemberIds(memberIds, pageable);
         return articles.map(ArticleResponse::fromEntity);
     }
 
     public List<MoimResponse> getMyMoims(UUID memberId) {
+        memberRepository.findById(memberId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+
         List<MoimMember> myMemberships = moimMemberRepository.findByMemberId(memberId);
         return myMemberships.stream()
                 .map(MoimMember::getMoim)
                 .map(MoimResponse::from)
                 .toList();
+    }
+
+    public Page<ArticleResponse> getMoimFeedByMember(UUID memberId, Pageable pageable) {
+        memberRepository.findById(memberId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+        List<UUID> joinedMemberIds = moimMemberRepository.findDistinctJoinedMemberIdsByMemberId(memberId);
+        if (joinedMemberIds.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, 0);
+        }
+
+        Page<Article> articles = articleRepository.findByMemberIds(joinedMemberIds, pageable);
+        return articles.map(ArticleResponse::fromEntity);
     }
 
     @Transactional

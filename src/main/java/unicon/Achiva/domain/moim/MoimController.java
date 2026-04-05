@@ -6,7 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
@@ -63,6 +64,17 @@ public class MoimController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "내 모임 조회 성공"));
     }
 
+    @Operation(summary = "특정 유저가 가입한 모든 모임의 게시글 피드 조회")
+    @GetMapping("/members/{memberId}")
+    public ResponseEntity<ApiResponseForm<Page<ArticleResponse>>> getMoimFeedByMember(
+            @Parameter(description = "조회할 유저의 UUID") @PathVariable UUID memberId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @ParameterObject Pageable pageable
+    ) {
+        Page<ArticleResponse> response = moimService.getMoimFeedByMember(memberId, pageable);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저 가입 모임 게시글 피드 조회 성공"));
+    }
+
     @Operation(summary = "모임 상세 조회")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponseForm<MoimDetailResponse>> getMoimDetail(@PathVariable Long id) {
@@ -93,15 +105,15 @@ public class MoimController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 설정 변경 성공"));
     }
 
-    @Operation(summary = "이번 달 모임 피드 (모임 멤버들의 게시물)")
+    @Operation(summary = "모임 피드 조회")
     @GetMapping("/{id}/feed")
     public ResponseEntity<ApiResponseForm<Page<ArticleResponse>>> getMoimFeed(
             @PathVariable Long id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @ParameterObject Pageable pageable
     ) {
         UUID memberId = authService.getMemberIdFromToken();
-        Page<ArticleResponse> response = moimService.getMoimFeed(id, memberId, PageRequest.of(page, size));
+        Page<ArticleResponse> response = moimService.getMoimFeed(id, memberId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 피드 조회 성공"));
     }
 

@@ -221,6 +221,15 @@ public class ArticleService {
         return toArticleWithBookResponsePage(articleRepository.findAllByMemberId(memberId, pageable));
     }
 
+    public Page<ArticleWithBookResponse> getArticlesByCategory(String category, Pageable pageable) {
+        return toArticleWithBookResponsePage(
+                articleRepository.findAllByCategory(
+                        Category.fromDisplayName(category),
+                        applyDefaultCreatedAtSort(pageable)
+                )
+        );
+    }
+
     public CategoryCountResponse getArticleCountByCategory(UUID memberId) {
         List<Object[]> result = articleRepository.countArticlesByCategoryForMember(memberId);
         return toCategoryCountResponse(result);
@@ -465,37 +474,42 @@ public class ArticleService {
         return memberCategoryCounterRepository.saveAndFlush(c);
     }
 
-    public Page<ArticleWithBookResponse> getArticlesByMemberAndCateogry(UUID memberId, String category, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getArticlesByMemberAndCategory(UUID memberId, String category, Pageable pageable) {
         return toArticleWithBookResponsePage(
-                articleRepository.findByMemberIdWithCategory(memberId, Category.fromDisplayName(category), pageable)
+                articleRepository.findByMemberIdWithCategory(
+                        memberId,
+                        Category.fromDisplayName(category),
+                        applyDefaultCreatedAtSort(pageable)
+                )
         );
     }
 
     public Page<ArticleWithBookResponse> getAllArticlesFeed(Pageable pageable) {
-        // 기본 정렬 보정: createdAt DESC
-        Pageable sorted = pageable;
-        if (pageable.getSort().isUnsorted()) {
-            sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
-                    Sort.by(Sort.Direction.DESC, "createdAt"));
-        }
-
-        Page<Article> page = articleRepository.findAllByIsDeletedFalse(sorted);
+        Page<Article> page = articleRepository.findAllByIsDeletedFalse(applyDefaultCreatedAtSort(pageable));
         return toArticleWithBookResponsePage(page);
     }
 
     public Page<ArticleWithBookResponse> getCheeringRelatedArticlesFeed(UUID memberId, Pageable pageable) {
-        // 기본 정렬 보정
-        Pageable sorted = pageable;
-        if (pageable.getSort().isUnsorted()) {
-            sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
-                    Sort.by(Sort.Direction.DESC, "createdAt"));
-        }
-
         // 응원 관계 사용자들의 게시글 조회
-        Page<Article> page = articleRepository.findByCheeringRelatedMembers(memberId, sorted);
+        Page<Article> page = articleRepository.findByCheeringRelatedMembers(
+                memberId,
+                applyDefaultCreatedAtSort(pageable)
+        );
 
         // ArticleWithBookResponse로 변환
         return toArticleWithBookResponsePage(page);
+    }
+
+    private Pageable applyDefaultCreatedAtSort(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
     }
 
     public TotalCharacterCountResponse getTotalCharacterCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
