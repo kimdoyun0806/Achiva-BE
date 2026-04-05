@@ -15,10 +15,12 @@ import unicon.Achiva.domain.push.PushService;
 import unicon.Achiva.domain.push.dto.PushSendRequest;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,19 +29,72 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class FriendshipService {
 
+    private static final Comparator<Friendship> FRIENDSHIP_PRIORITY = Comparator
+            .comparingInt((Friendship friendship) -> statusPriority(friendship.getStatus())).reversed()
+            .thenComparing(Friendship::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(Friendship::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(Friendship::getId, Comparator.nullsLast(Comparator.reverseOrder()));
+
     private final FriendshipRepository friendshipRepository;
     private final MemberRepository memberRepository;
     private final PushService pushService;
 
     @Transactional
     public FriendshipResponse sendFriendRequest(FriendshipRequest friendshipRequest, UUID fromMemberId) {
+        UUID receiverId = friendshipRequest.getRecieverId();
+        if (fromMemberId.equals(receiverId)) {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_SELF_REQUEST);
+        }
 
+        Map<UUID, Member> members = lockMembers(fromMemberId, receiverId);
+        Member requester = members.get(fromMemberId);
+        Member receiver = members.get(receiverId);
+        List<Friendship> pairFriendships = friendshipRepository.findAllByMemberPairForUpdate(fromMemberId, receiverId);
 
-        Member requester = memberRepository.findById(fromMemberId)
-                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+        Friendship blockedFriendship = findLatestByStatus(pairFriendships, FriendshipStatus.BLOCKED);
+        if (blockedFriendship != null) {
+            cleanupPairDuplicates(pairFriendships, blockedFriendship);
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_BLOCKED);
+        }
 
-        Member receiver = memberRepository.findById(friendshipRequest.getRecieverId())
-                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+        Friendship acceptedFriendship = findLatestByStatus(pairFriendships, FriendshipStatus.ACCEPTED);
+        if (acceptedFriendship != null) {
+            cleanupPairDuplicates(pairFriendships, acceptedFriendship);
+            return FriendshipResponse.fromEntity(acceptedFriendship);
+        }
+
+        Friendship reversePendingFriendship = pairFriendships.stream()
+                .filter(friendship -> friendship.getStatus() == FriendshipStatus.PENDING)
+                .filter(friendship -> friendship.getRequester().getId().equals(receiverId))
+                .filter(friendship -> friendship.getReceiver().getId().equals(fromMemberId))
+                .max(FRIENDSHIP_PRIORITY)
+                .orElse(null);
+        if (reversePendingFriendship != null) {
+            reversePendingFriendship.updateStatus(FriendshipStatus.ACCEPTED);
+            cleanupPairDuplicates(pairFriendships, reversePendingFriendship);
+            sendFriendAcceptPushNotification(requester, receiver);
+            return FriendshipResponse.fromEntity(reversePendingFriendship);
+        }
+
+        Friendship sameDirectionPendingFriendship = pairFriendships.stream()
+                .filter(friendship -> friendship.getStatus() == FriendshipStatus.PENDING)
+                .filter(friendship -> friendship.getRequester().getId().equals(fromMemberId))
+                .filter(friendship -> friendship.getReceiver().getId().equals(receiverId))
+                .max(FRIENDSHIP_PRIORITY)
+                .orElse(null);
+        if (sameDirectionPendingFriendship != null) {
+            cleanupPairDuplicates(pairFriendships, sameDirectionPendingFriendship);
+            return FriendshipResponse.fromEntity(sameDirectionPendingFriendship);
+        }
+
+        Friendship reusableRejectedFriendship = findLatestByStatus(pairFriendships, FriendshipStatus.REJECTED);
+        if (reusableRejectedFriendship != null) {
+            reusableRejectedFriendship.updateParticipants(requester, receiver);
+            reusableRejectedFriendship.updateStatus(FriendshipStatus.PENDING);
+            cleanupPairDuplicates(pairFriendships, reusableRejectedFriendship);
+            sendFriendRequestPushNotification(requester, receiver);
+            return FriendshipResponse.fromEntity(reusableRejectedFriendship);
+        }
 
         Friendship friendship = Friendship.builder()
                 .requester(requester)
@@ -60,6 +115,10 @@ public class FriendshipService {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
 
+        if (friendship.getStatus() == FriendshipStatus.ACCEPTED) {
+            return FriendshipResponse.fromEntity(friendship);
+        }
+
         if (friendship.getStatus() != FriendshipStatus.PENDING) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_ALREADY_PROCESSED);
         }
@@ -68,7 +127,13 @@ public class FriendshipService {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_RECEIVER);
         }
 
+        lockMembers(friendship.getRequester().getId(), friendship.getReceiver().getId());
+        List<Friendship> pairFriendships = friendshipRepository.findAllByMemberPairForUpdate(
+                friendship.getRequester().getId(),
+                friendship.getReceiver().getId()
+        );
         friendship.updateStatus(FriendshipStatus.ACCEPTED);
+        cleanupPairDuplicates(pairFriendships, friendship);
 
         // 푸시 알림 전송: 친구 수락 (friend_accept)
         sendFriendAcceptPushNotification(friendship.getReceiver(), friendship.getRequester());
@@ -81,6 +146,10 @@ public class FriendshipService {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
 
+        if (friendship.getStatus() == FriendshipStatus.REJECTED) {
+            return FriendshipResponse.fromEntity(friendship);
+        }
+
         if (friendship.getStatus() != FriendshipStatus.PENDING) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_ALREADY_PROCESSED);
         }
@@ -89,7 +158,13 @@ public class FriendshipService {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_RECEIVER);
         }
 
+        lockMembers(friendship.getRequester().getId(), friendship.getReceiver().getId());
+        List<Friendship> pairFriendships = friendshipRepository.findAllByMemberPairForUpdate(
+                friendship.getRequester().getId(),
+                friendship.getReceiver().getId()
+        );
         friendship.updateStatus(FriendshipStatus.REJECTED);
+        cleanupPairDuplicates(pairFriendships, friendship);
         friendshipRepository.save(friendship);
         return FriendshipResponse.fromEntity(friendship);
     }
@@ -243,5 +318,45 @@ public class FriendshipService {
             log.error("[Friendship] 친구 수락 푸시 알림 전송 실패 - from: {}, to: {}, error: {}",
                       acceptor.getId(), requester.getId(), e.getMessage(), e);
         }
+    }
+
+    private Map<UUID, Member> lockMembers(UUID firstMemberId, UUID secondMemberId) {
+        List<UUID> memberIds = List.of(firstMemberId, secondMemberId).stream()
+                .sorted()
+                .toList();
+
+        List<Member> members = memberRepository.findAllByIdInOrderByIdAscForUpdate(memberIds);
+        if (members.size() != 2) {
+            throw new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND);
+        }
+
+        return members.stream()
+                .collect(Collectors.toMap(Member::getId, Function.identity()));
+    }
+
+    private Friendship findLatestByStatus(List<Friendship> friendships, FriendshipStatus status) {
+        return friendships.stream()
+                .filter(friendship -> friendship.getStatus() == status)
+                .max(FRIENDSHIP_PRIORITY)
+                .orElse(null);
+    }
+
+    private void cleanupPairDuplicates(List<Friendship> friendships, Friendship canonicalFriendship) {
+        List<Friendship> duplicates = friendships.stream()
+                .filter(friendship -> !friendship.getId().equals(canonicalFriendship.getId()))
+                .toList();
+
+        if (!duplicates.isEmpty()) {
+            friendshipRepository.deleteAll(duplicates);
+        }
+    }
+
+    private static int statusPriority(FriendshipStatus status) {
+        return switch (status) {
+            case BLOCKED -> 4;
+            case ACCEPTED -> 3;
+            case PENDING -> 2;
+            case REJECTED -> 1;
+        };
     }
 }

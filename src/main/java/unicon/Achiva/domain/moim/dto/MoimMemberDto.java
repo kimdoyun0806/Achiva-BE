@@ -12,18 +12,22 @@ import java.util.UUID;
 public class MoimMemberDto {
     private String id;
     private String name;
+    private String profileImageUrl;
+    private int score;
     private int monthlyPosts;
     private int weeklyStreak;
     private int lastActiveDaysAgo;
     private boolean isMe;
     private MoimRole role;
 
-    public static MoimMemberDto from(MoimMember moimMember, UUID currentUserId, int monthlyPosts, int weeklyStreak) {
+    public static MoimMemberDto from(MoimMember moimMember, UUID currentUserId, int score, int monthlyPosts, int weeklyStreak) {
         boolean isMe = moimMember.getMember().getId().equals(currentUserId);
 
         return MoimMemberDto.builder()
                 .id(moimMember.getMember().getId().toString())
                 .name(moimMember.getMember().getNickName())
+                .profileImageUrl(moimMember.getMember().getProfileImageUrl())
+                .score(score)
                 .monthlyPosts(monthlyPosts)
                 .weeklyStreak(weeklyStreak)
                 .lastActiveDaysAgo(0) // TODO: 실제 마지막 활성화 일수 연동 예정

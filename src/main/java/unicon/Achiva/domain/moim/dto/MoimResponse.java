@@ -19,6 +19,7 @@ public class MoimResponse {
     private String leaderName;
     private int memberCount;
     private int maxMember;
+    private int score;
     @com.fasterxml.jackson.annotation.JsonProperty("isPrivate")
     private boolean isPrivate;
     @com.fasterxml.jackson.annotation.JsonProperty("isOfficial")
@@ -39,6 +40,7 @@ public class MoimResponse {
                 .leaderName(leader)
                 .memberCount(moim.getMemberCount())
                 .maxMember(moim.getMaxMember())
+                .score(moim.getScore())
                 .isPrivate(moim.isPrivate())
                 .isOfficial(moim.isOfficial())
                 .build();

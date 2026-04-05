@@ -11,12 +11,14 @@ import unicon.Achiva.domain.article.ArticleService;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.category.CategoryCountResponse;
 import unicon.Achiva.domain.member.dto.ConfirmProfileImageUploadRequest;
+import unicon.Achiva.domain.member.dto.MemberRankingResponse;
 import unicon.Achiva.domain.member.dto.MemberResponse;
 import unicon.Achiva.domain.member.dto.SearchMemberCondition;
 import unicon.Achiva.domain.s3.S3Service;
 import unicon.Achiva.global.response.ApiResponseForm;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -65,6 +67,13 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponseForm.success(members, "닉네임으로 유저 검색 성공"));
     }
 
+    @Operation(summary = "전체 유저 랭킹 데이터 조회", description = "랭킹 기능을 위한 임시 API")
+    @GetMapping("/api/members/ranking")
+    public ResponseEntity<ApiResponseForm<List<MemberRankingResponse>>> getMembersForRanking() {
+        List<MemberRankingResponse> members = memberService.getMembersForRanking();
+        return ResponseEntity.ok(ApiResponseForm.success(members, "전체 유저 랭킹 데이터 조회 성공"));
+    }
+
     @Operation(summary = "유저 프로필 사진 저장용 presigned URL 발급(이후 회원가입이나 프로필이미지 수정시 쿼리파라미터를 제외한 url을 BE에 보내야함.)")
     @GetMapping("/api/members/presigned-url")
     public ResponseEntity<ApiResponseForm<Map<String, String>>> getPresignedUrl(
@@ -84,6 +93,14 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponseForm.success(result, "카테고리별 작성 수 조회 성공"));
     }
 
+    @GetMapping("/api/members/{memberId}/weekly-count-by-category")
+    public ResponseEntity<ApiResponseForm<CategoryCountResponse>> getWeeklyArticleCountByCategory(
+            @RequestParam UUID memberId
+    ) {
+        CategoryCountResponse result = articleService.getWeeklyArticleCountByCategory(memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(result, "이번 주 카테고리별 작성 수 조회 성공"));
+    }
+
     @Operation(summary = "내 프로필 이미지 조회 API")
     @GetMapping("/api/members/me/image")
     public ResponseEntity<ApiResponseForm<String>> getMyProfileImageUrl() {
@@ -92,6 +109,14 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponseForm.success(
                 profileImageUrl,
                 "내 프로필 이미지 조회 성공"));
+    }
+
+    @Operation(summary = "내 기록 통계 조회 API (주간 운동 횟수, 연속 달성 주차)")
+    @GetMapping("/api/members/me/stats")
+    public ResponseEntity<ApiResponseForm<unicon.Achiva.domain.member.dto.MemberStatsResponse>> getMyStats() {
+        UUID memberId = authService.getMemberIdFromToken();
+        unicon.Achiva.domain.member.dto.MemberStatsResponse stats = articleService.getMemberStats(memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(stats, "내 기록 통계 조회 성공"));
     }
 
     @Operation(summary = "내 프로필 이미지 수정 API. presigned URL 발급 및 업로드가 선행되어야 함.")

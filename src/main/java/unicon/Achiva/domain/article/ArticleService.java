@@ -3,12 +3,14 @@ package unicon.Achiva.domain.article;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import unicon.Achiva.domain.article.dto.ArticleRequest;
+import unicon.Achiva.domain.article.dto.ArticleCountResponse;
 import unicon.Achiva.domain.article.dto.ArticleResponse;
 import unicon.Achiva.domain.article.dto.ArticleWithBookResponse;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
@@ -22,6 +24,7 @@ import unicon.Achiva.domain.book.infrastructure.BookArticleRepository;
 import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.category.CategoryCharacterCountResponse;
 import unicon.Achiva.domain.category.CategoryCountResponse;
+import unicon.Achiva.domain.category.CategoryRankingResponse;
 import unicon.Achiva.domain.cheering.infrastructure.CheeringRepository;
 import unicon.Achiva.domain.friendship.FriendshipStatus;
 import unicon.Achiva.domain.friendship.infrastructure.FriendshipRepository;
@@ -32,10 +35,13 @@ import unicon.Achiva.domain.member.entity.MemberCategoryKey;
 import unicon.Achiva.domain.member.infrastructure.CounterHelper;
 import unicon.Achiva.domain.member.infrastructure.MemberCategoryCounterRepository;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.moim.entity.MoimScore;
+import unicon.Achiva.domain.moim.repository.MoimScoreRepository;
 import unicon.Achiva.domain.push.PushService;
 import unicon.Achiva.domain.push.dto.PushSendRequest;
 import unicon.Achiva.global.response.GeneralException;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -57,6 +63,7 @@ public class ArticleService {
     private final BookArticleRepository bookArticleRepository;
     private final PushService pushService;
     private final ArticlePushHistoryRepository articlePushHistoryRepository;
+    private final MoimScoreRepository moimScoreRepository;
 
 
     @Transactional(readOnly = true)
@@ -69,6 +76,8 @@ public class ArticleService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
         Category cat = request.category();
+        LocalDateTime createdAt = LocalDateTime.now();
+        ArticleStatsSnapshot statsSnapshot = calculateNewArticleStats(memberId, createdAt);
 
         MemberCategoryCounter dst = counterHelper.lockOrInit(memberId, cat);
         long newSeq = dst.getSize() + 1;
@@ -80,15 +89,18 @@ public class ArticleService {
                 .category(request.category())
                 .questions(request.question().stream()
                         .map(ArticleRequest.QuestionDTO::toEntity)
-                        .collect(Collectors.toList()))
+                .collect(Collectors.toList()))
                 .member(member)
                 .authorCategorySeq(newSeq)
                 .backgroundColor(request.backgroundColor())
+                .weeklyWorkoutCount(statsSnapshot.weeklyWorkoutCount())
+                .continuousGoalWeeks(statsSnapshot.continuousGoalWeeks())
                 .build();
 
         article.getQuestions().forEach(q -> q.setArticle(article));
 
         articleRepository.save(article);
+        increaseMoimScores(article);
 
         return article;
     }
@@ -100,7 +112,7 @@ public class ArticleService {
         // 게시글 생성 후 친구들에게 푸시 알림 전송
         sendFriendWorkoutPushNotifications(article);
 
-        return ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId()));
+        return toArticleWithBookResponse(article, getMemberArticleCountMap(List.of(memberId)));
     }
 
     @Transactional
@@ -169,7 +181,29 @@ public class ArticleService {
         articleRepository.shiftLeft(memberId, cat, seq);
         counter.setSize(counter.getSize() - 1);
 
+        decreaseMoimScores(article);
         articleRepository.delete(article);
+    }
+
+    private void increaseMoimScores(Article article) {
+        List<MoimScore> activeScores = moimScoreRepository.findActiveScoresByMemberId(article.getMember().getId());
+        for (MoimScore moimScore : activeScores) {
+            moimScore.increaseScore();
+            moimScore.getMoim().increaseScore();
+        }
+    }
+
+    private void decreaseMoimScores(Article article) {
+        LocalDateTime articleCreatedAt = Optional.ofNullable(article.getCreatedAt()).orElse(LocalDateTime.now());
+        List<MoimScore> targetScores = moimScoreRepository.findScoresContainingArticleCreatedAt(
+                article.getMember().getId(),
+                articleCreatedAt
+        );
+
+        for (MoimScore moimScore : targetScores) {
+            moimScore.decreaseScore();
+            moimScore.getMoim().decreaseScore();
+        }
     }
 
     public ArticleResponse getArticle(UUID articleId) {
@@ -180,18 +214,30 @@ public class ArticleService {
     }
 
     public Page<ArticleWithBookResponse> getArticles(SearchArticleCondition condition, Pageable pageable) {
-        return articleRepository.searchByCondition(condition, pageable)
-                .map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+        return toArticleWithBookResponsePage(articleRepository.searchByCondition(condition, pageable));
     }
 
     public Page<ArticleWithBookResponse> getArticlesByMember(UUID memberId, Pageable pageable) {
-        return articleRepository.findAllByMemberId(memberId, pageable)
-                .map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+        return toArticleWithBookResponsePage(articleRepository.findAllByMemberId(memberId, pageable));
     }
 
     public CategoryCountResponse getArticleCountByCategory(UUID memberId) {
         List<Object[]> result = articleRepository.countArticlesByCategoryForMember(memberId);
+        return toCategoryCountResponse(result);
+    }
 
+    public CategoryCountResponse getWeeklyArticleCountByCategory(UUID memberId) {
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
+        List<Object[]> result = articleRepository.countArticlesByCategoryForMemberAndDateRange(
+                memberId,
+                weekStart,
+                null
+        );
+
+        return toCategoryCountResponse(result);
+    }
+
+    private CategoryCountResponse toCategoryCountResponse(List<Object[]> result) {
         // 결과를 Map으로 변환 (key: Category, value: Long)
         Map<Category, Long> categoryCountMap = result.stream()
                 .collect(Collectors.toMap(
@@ -215,6 +261,137 @@ public class ArticleService {
         return CategoryCountResponse.fromObjectList(completeResult);
     }
 
+    public unicon.Achiva.domain.member.dto.MemberStatsResponse getMemberStats(UUID memberId) {
+        List<LocalDateTime> createdDates = articleRepository.findAllCreatedAtByMemberId(memberId);
+        ArticleStatsSnapshot statsSnapshot = calculateStatsSnapshot(createdDates, LocalDate.now());
+        return new unicon.Achiva.domain.member.dto.MemberStatsResponse(
+                statsSnapshot.weeklyWorkoutCount(),
+                statsSnapshot.continuousGoalWeeks()
+        );
+    }
+
+    public Map<UUID, unicon.Achiva.domain.member.dto.MemberStatsResponse> getMemberStatsMap(Collection<UUID> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return Map.of();
+        }
+
+        LocalDate referenceDate = LocalDate.now();
+        Map<UUID, List<LocalDateTime>> createdDatesByMemberId = new HashMap<>();
+        for (Object[] row : articleRepository.findAllCreatedAtByMemberIds(memberIds)) {
+            UUID memberId = (UUID) row[0];
+            LocalDateTime createdAt = (LocalDateTime) row[1];
+            createdDatesByMemberId.computeIfAbsent(memberId, ignored -> new ArrayList<>()).add(createdAt);
+        }
+
+        Map<UUID, unicon.Achiva.domain.member.dto.MemberStatsResponse> statsMap = new HashMap<>();
+        for (UUID memberId : memberIds) {
+            ArticleStatsSnapshot statsSnapshot = calculateStatsSnapshot(
+                    createdDatesByMemberId.getOrDefault(memberId, Collections.emptyList()),
+                    referenceDate
+            );
+            statsMap.put(memberId, new unicon.Achiva.domain.member.dto.MemberStatsResponse(
+                    statsSnapshot.weeklyWorkoutCount(),
+                    statsSnapshot.continuousGoalWeeks()
+            ));
+        }
+
+        return statsMap;
+    }
+
+    private ArticleStatsSnapshot calculateNewArticleStats(UUID memberId, LocalDateTime createdAt) {
+        List<LocalDateTime> createdDates = new ArrayList<>(articleRepository.findAllCreatedAtByMemberId(memberId));
+        createdDates.add(createdAt);
+        return calculateStatsSnapshot(createdDates, createdAt.toLocalDate());
+    }
+
+    private ArticleStatsSnapshot calculateStatsSnapshot(List<LocalDateTime> createdDates, LocalDate referenceDate) {
+        LocalDate weekStart = referenceDate.with(DayOfWeek.MONDAY);
+        LocalDate nextWeekStart = weekStart.plusWeeks(1);
+
+        int weeklyWorkoutCount = (int) createdDates.stream()
+                .map(LocalDateTime::toLocalDate)
+                .filter(date -> !date.isBefore(weekStart) && date.isBefore(nextWeekStart))
+                .count();
+
+        return new ArticleStatsSnapshot(
+                weeklyWorkoutCount,
+                calculateContinuousGoalWeeks(createdDates, referenceDate)
+        );
+    }
+
+    private int calculateContinuousGoalWeeks(List<LocalDateTime> createdDates, LocalDate referenceDate) {
+        Map<LocalDate, Set<LocalDate>> activeDaysByWeek = new HashMap<>();
+
+        for (LocalDateTime createdDate : createdDates) {
+            LocalDate date = createdDate.toLocalDate();
+            LocalDate mondayAnchor = date.with(DayOfWeek.MONDAY);
+            activeDaysByWeek.computeIfAbsent(mondayAnchor, ignored -> new HashSet<>()).add(date);
+        }
+
+        int continuousWeeks = 0;
+        LocalDate checkDate = referenceDate;
+        boolean isCurrentWeek = true;
+
+        while (true) {
+            LocalDate mondayAnchor = checkDate.with(DayOfWeek.MONDAY);
+            int activeDayCount = activeDaysByWeek.getOrDefault(mondayAnchor, Collections.emptySet()).size();
+
+            if (activeDayCount >= 3) {
+                continuousWeeks++;
+                isCurrentWeek = false;
+            } else {
+                if (isCurrentWeek) {
+                    isCurrentWeek = false;
+                } else {
+                    break;
+                }
+            }
+
+            checkDate = checkDate.minusWeeks(1);
+        }
+
+        return continuousWeeks;
+    }
+
+    private record ArticleStatsSnapshot(int weeklyWorkoutCount, int continuousGoalWeeks) {
+    }
+
+    private Page<ArticleWithBookResponse> toArticleWithBookResponsePage(Page<Article> page) {
+        Map<UUID, Long> memberArticleCountMap = getMemberArticleCountMap(
+                page.getContent().stream()
+                        .map(article -> article.getMember().getId())
+                        .distinct()
+                        .toList()
+        );
+
+        List<ArticleWithBookResponse> content = page.getContent().stream()
+                .map(article -> toArticleWithBookResponse(article, memberArticleCountMap))
+                .toList();
+
+        return new PageImpl<>(content, page.getPageable(), page.getTotalElements());
+    }
+
+    private ArticleWithBookResponse toArticleWithBookResponse(Article article, Map<UUID, Long> memberArticleCountMap) {
+        long memberArticleCount = memberArticleCountMap.getOrDefault(article.getMember().getId(), 0L);
+        return ArticleWithBookResponse.fromEntity(
+                article,
+                getBookArticleList(article.getId()),
+                memberArticleCount
+        );
+    }
+
+    private Map<UUID, Long> getMemberArticleCountMap(List<UUID> memberIds) {
+        if (memberIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return articleRepository.countArticlesByMemberIds(memberIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (UUID) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
+
     public Page<ArticleWithBookResponse> getHomeArticles(UUID myId, Pageable pageable) {
         List<UUID> friendIds = friendshipRepository.findFriendIdsOf(myId, FriendshipStatus.ACCEPTED);
         List<UUID> cheererIds = cheeringRepository.findDistinctCheererIdsWhoCheeredMyArticles(myId);
@@ -229,7 +406,7 @@ public class ArticleService {
                 .toList();
 
         Page<Article> page = articleRepository.findCombinedFeed(friendIds, cheererOnly, pageable);
-        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+        return toArticleWithBookResponsePage(page);
     }
 
 
@@ -284,7 +461,7 @@ public class ArticleService {
         }
 
         Page<Article> page = articleRepository.findByCategoryIn(cats, sorted);
-        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+        return toArticleWithBookResponsePage(page);
     }
 
     private MemberCategoryCounter initCounter(MemberCategoryKey key) {
@@ -310,8 +487,9 @@ public class ArticleService {
     }
 
     public Page<ArticleWithBookResponse> getArticlesByMemberAndCateogry(UUID memberId, String category, Pageable pageable) {
-        return articleRepository.findByMemberIdWithCategory(memberId, Category.fromDisplayName(category), pageable)
-                .map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+        return toArticleWithBookResponsePage(
+                articleRepository.findByMemberIdWithCategory(memberId, Category.fromDisplayName(category), pageable)
+        );
     }
 
     public Page<ArticleWithBookResponse> getAllArticlesFeed(Pageable pageable) {
@@ -323,7 +501,7 @@ public class ArticleService {
         }
 
         Page<Article> page = articleRepository.findAllByIsDeletedFalse(sorted);
-        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+        return toArticleWithBookResponsePage(page);
     }
 
     public Page<ArticleWithBookResponse> getCheeringRelatedArticlesFeed(UUID memberId, Pageable pageable) {
@@ -338,12 +516,17 @@ public class ArticleService {
         Page<Article> page = articleRepository.findByCheeringRelatedMembers(memberId, sorted);
 
         // ArticleWithBookResponse로 변환
-        return page.map(article -> ArticleWithBookResponse.fromEntity(article, getBookArticleList(article.getId())));
+        return toArticleWithBookResponsePage(page);
     }
 
     public TotalCharacterCountResponse getTotalCharacterCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
         long totalCount = articleRepository.countTotalCharactersByDateRange(memberId, startDate, endDate);
         return new TotalCharacterCountResponse(totalCount);
+    }
+
+    public ArticleCountResponse getArticleCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
+        long articleCount = articleRepository.countArticlesByDateRange(memberId, startDate, endDate);
+        return new ArticleCountResponse(articleCount);
     }
 
     public CategoryCharacterCountResponse getCharacterCountByCategory(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
@@ -370,6 +553,37 @@ public class ArticleService {
                 .collect(Collectors.toList());
 
         return CategoryCharacterCountResponse.fromObjectList(completeResult);
+    }
+
+    public CategoryRankingResponse getCategoryRanking() {
+        Map<Category, List<CategoryRankingResponse.CategoryRankingMember>> rankingMap = new LinkedHashMap<>();
+        for (Category category : Category.values()) {
+            rankingMap.put(category, new ArrayList<>());
+        }
+
+        for (Object[] row : articleRepository.countArticlesByCategoryAndMember()) {
+            Category category = (Category) row[0];
+            UUID memberId = (UUID) row[1];
+            String nickName = (String) row[2];
+            String profileImageUrl = (String) row[3];
+            Long articleCount = (Long) row[4];
+
+            rankingMap.get(category).add(new CategoryRankingResponse.CategoryRankingMember(
+                    memberId,
+                    nickName,
+                    profileImageUrl,
+                    articleCount
+            ));
+        }
+
+        List<CategoryRankingResponse.CategoryRanking> categories = rankingMap.entrySet().stream()
+                .map(entry -> new CategoryRankingResponse.CategoryRanking(
+                        Category.getDisplayName(entry.getKey()),
+                        entry.getValue()
+                ))
+                .toList();
+
+        return new CategoryRankingResponse(categories);
     }
 
     /**

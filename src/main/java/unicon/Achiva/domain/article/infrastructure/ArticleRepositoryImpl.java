@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import unicon.Achiva.domain.article.dto.SearchArticleCondition;
 import unicon.Achiva.domain.article.entity.Article;
 import unicon.Achiva.domain.article.entity.Question;
+import unicon.Achiva.domain.book.entity.Book;
 import unicon.Achiva.domain.category.Category;
 
 import java.util.ArrayList;
@@ -63,6 +64,13 @@ public class ArticleRepositoryImpl implements ArticleRepositoryCustom {
 
         List<Predicate> preds = new ArrayList<>();
 
+        preds.add(cb.isFalse(a.get("isDeleted")));
+
+        Subquery<java.util.UUID> mainArticleSubquery = cq.subquery(java.util.UUID.class);
+        Root<Book> bookRoot = mainArticleSubquery.from(Book.class);
+        mainArticleSubquery.select(bookRoot.get("mainArticle").get("id"));
+        preds.add(cb.not(a.get("id").in(mainArticleSubquery)));
+
         // 카테고리 필터 (옵션)
         if (category != null) {
             preds.add(cb.equal(a.get("category"), category));
@@ -104,6 +112,13 @@ public class ArticleRepositoryImpl implements ArticleRepositoryCustom {
         Join<Article, Question> cqJoin = ca.join("questions", JoinType.LEFT);
 
         List<Predicate> countPreds = new ArrayList<>();
+        countPreds.add(cb.isFalse(ca.get("isDeleted")));
+
+        Subquery<java.util.UUID> countMainArticleSubquery = countCq.subquery(java.util.UUID.class);
+        Root<Book> countBookRoot = countMainArticleSubquery.from(Book.class);
+        countMainArticleSubquery.select(countBookRoot.get("mainArticle").get("id"));
+        countPreds.add(cb.not(ca.get("id").in(countMainArticleSubquery)));
+
         if (category != null) {
             countPreds.add(cb.equal(ca.get("category"), category));
         }

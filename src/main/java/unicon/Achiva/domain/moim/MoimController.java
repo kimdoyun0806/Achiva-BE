@@ -1,5 +1,6 @@
 package unicon.Achiva.domain.moim;
 
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -13,8 +14,9 @@ import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.moim.dto.MoimCreateRequest;
 import unicon.Achiva.domain.moim.dto.MoimDetailResponse;
+import unicon.Achiva.domain.moim.dto.MoimRankingResponse;
 import unicon.Achiva.domain.moim.dto.MoimResponse;
-import unicon.Achiva.domain.moim.dto.MoimSettingRequest;
+import unicon.Achiva.domain.moim.dto.MoimUpdateRequest;
 import unicon.Achiva.global.response.ApiResponseForm;
 
 import java.util.List;
@@ -48,6 +50,13 @@ public class MoimController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 목록 조회 성공"));
     }
 
+    @Operation(summary = "전체 모임 랭킹 데이터 조회", description = "랭킹 기능을 위한 임시 API")
+    @GetMapping("/ranking")
+    public ResponseEntity<ApiResponseForm<List<MoimRankingResponse>>> getMoimsForRanking() {
+        List<MoimRankingResponse> response = moimService.getMoimsForRanking();
+        return ResponseEntity.ok(ApiResponseForm.success(response, "전체 모임 랭킹 데이터 조회 성공"));
+    }
+
     @Operation(summary = "내 모임(크루) 목록 조회")
     @GetMapping("/my")
     public ResponseEntity<ApiResponseForm<List<MoimResponse>>> getMyMoims() {
@@ -75,11 +84,11 @@ public class MoimController {
         return ResponseEntity.ok(ApiResponseForm.success(true, "모임 가입 성공"));
     }
 
-    @Operation(summary = "모임 설정 변경 (방장 전용)")
+    @Operation(summary = "모임 수정 (방장 전용, 전달한 필드만 반영)")
     @PutMapping("/{id}/settings")
     public ResponseEntity<ApiResponseForm<MoimDetailResponse>> updateMoimSettings(
             @PathVariable Long id,
-            @RequestBody MoimSettingRequest request
+            @RequestBody MoimUpdateRequest request
     ) {
         UUID memberId = authService.getMemberIdFromToken();
         MoimDetailResponse response = moimService.updateMoimSettings(id, memberId, request);
@@ -104,6 +113,17 @@ public class MoimController {
         UUID memberId = authService.getMemberIdFromToken();
         moimService.leaveMoim(id, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(true, "모임 탈퇴 성공"));
+    }
+
+    @Operation(summary = "모임 멤버 강퇴 (방장 전용)", description = "로그인한 사용자가 해당 모임의 방장일 때 memberId에 해당하는 멤버를 모임에서 제외합니다.")
+    @DeleteMapping("/{id}/members/{memberId}")
+    public ResponseEntity<ApiResponseForm<Boolean>> removeMoimMember(
+            @Parameter(description = "모임 ID") @PathVariable Long id,
+            @Parameter(description = "강퇴할 멤버의 UUID") @PathVariable UUID memberId
+    ) {
+        UUID requesterId = authService.getMemberIdFromToken();
+        moimService.removeMoimMember(id, requesterId, memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(true, "모임 멤버 제외 성공"));
     }
 
     @Operation(summary = "모임 삭제 (방장 전용)")

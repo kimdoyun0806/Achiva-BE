@@ -45,6 +45,12 @@ public class Article extends UuidBaseEntity {
     @Column(name = "author_category_seq", nullable = false)
     private Long authorCategorySeq;
 
+    @Column(name = "weekly_workout_count")
+    private Integer weeklyWorkoutCount;
+
+    @Column(name = "continuous_goal_weeks")
+    private Integer continuousGoalWeeks;
+
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Question> questions;
 

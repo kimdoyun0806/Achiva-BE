@@ -15,13 +15,16 @@ import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.domain.moim.dto.MoimCreateRequest;
 import unicon.Achiva.domain.moim.dto.MoimDetailResponse;
+import unicon.Achiva.domain.moim.dto.MoimRankingResponse;
 import unicon.Achiva.domain.moim.dto.MoimResponse;
-import unicon.Achiva.domain.moim.dto.MoimSettingRequest;
+import unicon.Achiva.domain.moim.dto.MoimUpdateRequest;
 import unicon.Achiva.domain.moim.entity.Moim;
 import unicon.Achiva.domain.moim.entity.MoimMember;
 import unicon.Achiva.domain.moim.entity.MoimRole;
+import unicon.Achiva.domain.moim.entity.MoimScore;
 import unicon.Achiva.domain.moim.repository.MoimMemberRepository;
 import unicon.Achiva.domain.moim.repository.MoimRepository;
+import unicon.Achiva.domain.moim.repository.MoimScoreRepository;
 import unicon.Achiva.global.response.GeneralException;
 
 import java.time.DayOfWeek;
@@ -43,14 +46,16 @@ public class MoimService {
     private final MoimMemberRepository moimMemberRepository;
     private final MemberRepository memberRepository;
     private final ArticleRepository articleRepository;
+    private final MoimScoreRepository moimScoreRepository;
 
     @Transactional
     public MoimResponse createMoim(MoimCreateRequest request, UUID memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
 
+        boolean isPrivate = Boolean.TRUE.equals(request.getPrivateMoim());
         String encodedPassword = null;
-        if (request.isPrivate() && request.getPassword() != null && !request.getPassword().isBlank()) {
+        if (isPrivate && request.getPassword() != null && !request.getPassword().isBlank()) {
             encodedPassword = request.getPassword(); // 평문 저장 (임시)
         }
 
@@ -58,7 +63,7 @@ public class MoimService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .maxMember(request.getMaxMember())
-                .isPrivate(request.isPrivate())
+                .isPrivate(isPrivate)
                 .password(encodedPassword)
                 .categories(request.getCategories())
                 .isOfficial(false)
@@ -74,6 +79,10 @@ public class MoimService {
                 
         moimMemberRepository.save(moimMember);
         savedMoim.getMembers().add(moimMember);
+        moimScoreRepository.save(MoimScore.builder()
+                .moim(savedMoim)
+                .member(member)
+                .build());
 
         return MoimResponse.from(savedMoim);
     }
@@ -88,8 +97,42 @@ public class MoimService {
         Moim moim = moimRepository.findById(moimId)
                 .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
 
+        return buildMoimDetailResponse(moim, currentMemberId);
+    }
+
+    public List<MoimRankingResponse> getMoimsForRanking() {
+        List<Moim> moims = moimRepository.findAllWithMembers();
+        if (moims.isEmpty()) {
+            return List.of();
+        }
+
+        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        List<UUID> memberIds = moims.stream()
+                .flatMap(moim -> moim.getMembers().stream())
+                .map(mm -> mm.getMember().getId())
+                .distinct()
+                .toList();
+
+        Map<UUID, Long> monthlyPostCountMap = getMonthlyPostCountMap(memberIds, monthStart);
+
+        return moims.stream()
+                .sorted(java.util.Comparator.comparing(Moim::getId))
+                .map(moim -> {
+                    long groupGoalCurrent = moim.getMembers().stream()
+                            .map(MoimMember::getMember)
+                            .map(Member::getId)
+                            .mapToLong(memberId -> monthlyPostCountMap.getOrDefault(memberId, 0L))
+                            .sum();
+                    return MoimRankingResponse.from(moim, groupGoalCurrent);
+                })
+                .toList();
+    }
+
+    private MoimDetailResponse buildMoimDetailResponse(Moim moim, UUID currentMemberId) {
+
         // 이번 달 시작일
         LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
 
         // 모임 멤버 UUID 목록
         List<UUID> memberIds = moim.getMembers().stream()
@@ -97,31 +140,50 @@ public class MoimService {
                 .collect(Collectors.toList());
 
         // 멤버별 이번 달 게시물 수
+        Map<UUID, Long> scoreMap = getScoreMap(moim.getId(), memberIds);
+        Map<UUID, Long> postCountMap = getMonthlyPostCountMap(memberIds, monthStart);
+        Map<UUID, Long> weeklyStreakMap = getWeeklyActiveDayMap(memberIds, weekStart);
+
+        return MoimDetailResponse.from(moim, currentMemberId, scoreMap, postCountMap, weeklyStreakMap);
+    }
+
+    private Map<UUID, Long> getScoreMap(Long moimId, List<UUID> memberIds) {
+        if (memberIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        return moimScoreRepository.findByMoim_IdAndMember_IdInAndLeftAtIsNull(moimId, memberIds).stream()
+                .collect(Collectors.toMap(ms -> ms.getMember().getId(), ms -> (long) ms.getScore()));
+    }
+
+    private Map<UUID, Long> getMonthlyPostCountMap(List<UUID> memberIds, LocalDateTime monthStart) {
         Map<UUID, Long> postCountMap = new HashMap<>();
-        if (!memberIds.isEmpty()) {
-            List<Object[]> counts = articleRepository.countMonthlyPostsByMemberIds(memberIds, monthStart);
-            for (Object[] row : counts) {
-                UUID memberId = (UUID) row[0];
-                Long count = (Long) row[1];
-                postCountMap.put(memberId, count);
-            }
+        if (memberIds.isEmpty()) {
+            return postCountMap;
         }
 
-        // 이번 주 시작일 (월요일)
-        LocalDateTime weekStart = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
+        List<Object[]> counts = articleRepository.countMonthlyPostsByMemberIds(memberIds, monthStart);
+        for (Object[] row : counts) {
+            UUID memberId = (UUID) row[0];
+            Long count = (Long) row[1];
+            postCountMap.put(memberId, count);
+        }
+        return postCountMap;
+    }
 
-        // 멤버별 이번 주 스트릭 수
+    private Map<UUID, Long> getWeeklyActiveDayMap(List<UUID> memberIds, LocalDateTime weekStart) {
         Map<UUID, Long> weeklyStreakMap = new HashMap<>();
-        if (!memberIds.isEmpty()) {
-            List<Object[]> streakCounts = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
-            for (Object[] row : streakCounts) {
-                UUID memberId = (UUID) row[0];
-                Long count = (Long) row[1];
-                weeklyStreakMap.put(memberId, count);
-            }
+        if (memberIds.isEmpty()) {
+            return weeklyStreakMap;
         }
 
-        return MoimDetailResponse.from(moim, currentMemberId, postCountMap, weeklyStreakMap);
+        List<Object[]> streakCounts = articleRepository.countWeeklyActiveDaysByMemberIds(memberIds, weekStart);
+        for (Object[] row : streakCounts) {
+            UUID memberId = (UUID) row[0];
+            Long count = (Long) row[1];
+            weeklyStreakMap.put(memberId, count);
+        }
+        return weeklyStreakMap;
     }
 
     /**
@@ -181,10 +243,14 @@ public class MoimService {
                 .build();
 
         moimMemberRepository.save(moimMember);
+        moimScoreRepository.save(MoimScore.builder()
+                .moim(moim)
+                .member(member)
+                .build());
     }
 
     @Transactional
-    public MoimDetailResponse updateMoimSettings(Long moimId, UUID memberId, MoimSettingRequest request) {
+    public MoimDetailResponse updateMoimSettings(Long moimId, UUID memberId, MoimUpdateRequest request) {
         Moim moim = moimRepository.findById(moimId)
                 .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
 
@@ -195,8 +261,19 @@ public class MoimService {
             throw new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION);
         }
 
-        moim.updateSettings(request.getTargetAmount(), request.getPokeDays());
-        return MoimDetailResponse.from(moim, memberId, new HashMap<>(), new HashMap<>());
+        moim.update(
+                request.getName(),
+                request.getDescription(),
+                request.getMaxMember(),
+                request.getPrivateMoim(),
+                request.getPassword(),
+                request.getOfficialMoim(),
+                request.getTargetAmount(),
+                request.getPokeDays(),
+                request.getCategories()
+        );
+
+        return buildMoimDetailResponse(moim, memberId);
     }
 
     @Transactional
@@ -224,8 +301,35 @@ public class MoimService {
             // nextLeader가 null이면 혼자 있는 모임 → 삭제 없이 그냥 탈퇴 (모임은 남음)
         }
 
+        moimScoreRepository.findByMoim_IdAndMember_IdAndLeftAtIsNull(moimId, memberId)
+                .ifPresent(score -> score.leave(LocalDateTime.now()));
         moimMemberRepository.delete(moimMember);
         moim.getMembers().remove(moimMember);
+    }
+
+    @Transactional
+    public void removeMoimMember(Long moimId, UUID requesterId, UUID targetMemberId) {
+        Moim moim = moimRepository.findById(moimId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+
+        boolean isLeader = moim.getMembers().stream()
+                .anyMatch(mm -> mm.getMember().getId().equals(requesterId) && mm.getRole() == MoimRole.LEADER);
+
+        if (!isLeader) {
+            throw new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION);
+        }
+
+        MoimMember targetMoimMember = moimMemberRepository.findByMoimIdAndMemberId(moimId, targetMemberId)
+                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_MEMBER_NOT_FOUND));
+
+        if (targetMoimMember.getRole() == MoimRole.LEADER) {
+            throw new GeneralException(MoimErrorCode.LEADER_CANNOT_BE_REMOVED);
+        }
+
+        moimScoreRepository.findByMoim_IdAndMember_IdAndLeftAtIsNull(moimId, targetMemberId)
+                .ifPresent(score -> score.leave(LocalDateTime.now()));
+        moimMemberRepository.delete(targetMoimMember);
+        moim.getMembers().remove(targetMoimMember);
     }
 
     @Transactional
@@ -241,6 +345,7 @@ public class MoimService {
         }
 
         // 모임 멤버 전체 삭제 후 모임 삭제
+        moimScoreRepository.deleteAllByMoim_Id(moimId);
         moimMemberRepository.deleteAll(moim.getMembers());
         moimRepository.delete(moim);
     }

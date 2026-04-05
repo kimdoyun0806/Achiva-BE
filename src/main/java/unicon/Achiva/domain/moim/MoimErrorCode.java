@@ -8,7 +8,9 @@ public enum MoimErrorCode implements ErrorCode {
     INVALID_PASSWORD(1301, "비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
     MOIM_ALREADY_FULL(1302, "모임의 정원이 꽉 찼습니다.", HttpStatus.BAD_REQUEST),
     ALREADY_JOINED(1303, "이미 가입한 모임입니다.", HttpStatus.CONFLICT),
-    UNAUTHORIZED_ACTION(1304, "모임에 대한 권한이 없습니다.", HttpStatus.FORBIDDEN)
+    UNAUTHORIZED_ACTION(1304, "모임에 대한 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    MOIM_MEMBER_NOT_FOUND(1305, "해당 유저는 모임 멤버가 아닙니다.", HttpStatus.NOT_FOUND),
+    LEADER_CANNOT_BE_REMOVED(1306, "방장은 이 API로 제외할 수 없습니다.", HttpStatus.BAD_REQUEST)
     ;
 
     private final Integer code;

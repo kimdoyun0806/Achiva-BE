@@ -46,6 +46,10 @@ public class Moim extends LongBaseEntity {
     @Column(nullable = false)
     private int pokeDays = 5;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private int score = 0;
+
     @ElementCollection(targetClass = Category.class)
     @Enumerated(EnumType.STRING)
     @OnDelete(action = OnDeleteAction.CASCADE)
@@ -72,5 +76,58 @@ public class Moim extends LongBaseEntity {
     public void updateSettings(int targetAmount, int pokeDays) {
         this.targetAmount = targetAmount;
         this.pokeDays = pokeDays;
+    }
+
+    public void increaseScore() {
+        this.score += 1;
+    }
+
+    public void decreaseScore() {
+        if (this.score > 0) {
+            this.score -= 1;
+        }
+    }
+
+    public void update(String name,
+                       String description,
+                       Integer maxMember,
+                       Boolean isPrivate,
+                       String password,
+                       Boolean isOfficial,
+                       Integer targetAmount,
+                       Integer pokeDays,
+                       List<Category> categories) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (description != null) {
+            this.description = description;
+        }
+        if (maxMember != null) {
+            this.maxMember = maxMember;
+        }
+        if (isOfficial != null) {
+            this.isOfficial = isOfficial;
+        }
+        if (targetAmount != null) {
+            this.targetAmount = targetAmount;
+        }
+        if (pokeDays != null) {
+            this.pokeDays = pokeDays;
+        }
+        if (categories != null) {
+            this.categories = new ArrayList<>(categories);
+        }
+
+        if (isPrivate != null) {
+            this.isPrivate = isPrivate;
+            if (!isPrivate) {
+                this.password = null;
+            }
+        }
+
+        if (password != null && this.isPrivate && !password.isBlank()) {
+            this.password = password;
+        }
     }
 }
