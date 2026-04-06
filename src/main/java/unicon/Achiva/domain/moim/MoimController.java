@@ -38,21 +38,23 @@ public class MoimController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 생성 성공"));
     }
 
-    @Operation(summary = "모임 목록 조회 (필터링)")
+    @Operation(summary = "모임 목록 조회 (필터링)", description = "로그인한 사용자의 organization에 속한 하위 모임만 조회합니다.")
     @GetMapping
     public ResponseEntity<ApiResponseForm<Page<MoimResponse>>> getMoims(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean isOfficial,
             @ParameterObject Pageable pageable
     ) {
-        Page<MoimResponse> response = moimService.getMoims(keyword, isOfficial, pageable);
+        UUID requesterId = authService.getMemberIdFromToken();
+        Page<MoimResponse> response = moimService.getMoims(requesterId, keyword, isOfficial, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "모임 목록 조회 성공"));
     }
 
-    @Operation(summary = "전체 모임 랭킹 데이터 조회", description = "랭킹 기능을 위한 임시 API")
+    @Operation(summary = "전체 모임 랭킹 데이터 조회", description = "서비스 전체가 아니라 로그인한 사용자의 organization 기준 하위 모임 랭킹 데이터입니다.")
     @GetMapping("/ranking")
     public ResponseEntity<ApiResponseForm<List<MoimRankingResponse>>> getMoimsForRanking() {
-        List<MoimRankingResponse> response = moimService.getMoimsForRanking();
+        UUID requesterId = authService.getMemberIdFromToken();
+        List<MoimRankingResponse> response = moimService.getMoimsForRanking(requesterId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "전체 모임 랭킹 데이터 조회 성공"));
     }
 
@@ -64,18 +66,19 @@ public class MoimController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "내 모임 조회 성공"));
     }
 
-    @Operation(summary = "특정 유저가 가입한 모든 모임의 게시글 피드 조회")
+    @Operation(summary = "특정 유저가 가입한 모든 모임의 게시글 피드 조회", description = "같은 organization의 유저에 대해서만 조회할 수 있습니다.")
     @GetMapping("/members/{memberId}")
     public ResponseEntity<ApiResponseForm<Page<ArticleResponse>>> getMoimFeedByMember(
             @Parameter(description = "조회할 유저의 UUID") @PathVariable UUID memberId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             @ParameterObject Pageable pageable
     ) {
-        Page<ArticleResponse> response = moimService.getMoimFeedByMember(memberId, pageable);
+        UUID requesterId = authService.getMemberIdFromToken();
+        Page<ArticleResponse> response = moimService.getMoimFeedByMember(requesterId, memberId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저 가입 모임 게시글 피드 조회 성공"));
     }
 
-    @Operation(summary = "모임 상세 조회")
+    @Operation(summary = "모임 상세 조회", description = "같은 organization의 하위 모임만 조회할 수 있습니다.")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponseForm<MoimDetailResponse>> getMoimDetail(@PathVariable Long id) {
         UUID memberId = authService.getMemberIdFromToken();

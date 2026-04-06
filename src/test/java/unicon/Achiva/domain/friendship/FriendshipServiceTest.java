@@ -11,6 +11,7 @@ import unicon.Achiva.domain.friendship.entity.Friendship;
 import unicon.Achiva.domain.friendship.infrastructure.FriendshipRepository;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.domain.push.PushService;
 import unicon.Achiva.global.response.GeneralException;
 
@@ -38,11 +39,14 @@ class FriendshipServiceTest {
     @Mock
     private PushService pushService;
 
+    @Mock
+    private OrganizationAccessService organizationAccessService;
+
     private FriendshipService friendshipService;
 
     @BeforeEach
     void setUp() {
-        friendshipService = new FriendshipService(friendshipRepository, memberRepository, pushService);
+        friendshipService = new FriendshipService(friendshipRepository, memberRepository, pushService, organizationAccessService);
     }
 
     @Test

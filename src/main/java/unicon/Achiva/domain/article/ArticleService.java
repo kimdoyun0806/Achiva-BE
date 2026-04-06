@@ -37,6 +37,7 @@ import unicon.Achiva.domain.member.infrastructure.MemberCategoryCounterRepositor
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
 import unicon.Achiva.domain.moim.entity.MoimScore;
 import unicon.Achiva.domain.moim.repository.MoimScoreRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.domain.push.PushService;
 import unicon.Achiva.domain.push.dto.PushSendRequest;
 import unicon.Achiva.global.response.GeneralException;
@@ -64,6 +65,7 @@ public class ArticleService {
     private final PushService pushService;
     private final ArticlePushHistoryRepository articlePushHistoryRepository;
     private final MoimScoreRepository moimScoreRepository;
+    private final OrganizationAccessService organizationAccessService;
 
 
     @Transactional(readOnly = true)
@@ -213,18 +215,30 @@ public class ArticleService {
         return ArticleResponse.fromEntity(article);
     }
 
-    public Page<ArticleWithBookResponse> getArticles(SearchArticleCondition condition, Pageable pageable) {
-        return toArticleWithBookResponsePage(articleRepository.searchByCondition(condition, pageable));
+    public ArticleResponse getArticle(UUID requesterId, UUID articleId) {
+        return ArticleResponse.fromEntity(organizationAccessService.getAccessibleArticle(requesterId, articleId));
+    }
+
+    public Page<ArticleWithBookResponse> getArticles(UUID requesterId, SearchArticleCondition condition, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        return toArticleWithBookResponsePage(articleRepository.searchByCondition(condition, organizationId, pageable));
     }
 
     public Page<ArticleWithBookResponse> getArticlesByMember(UUID memberId, Pageable pageable) {
         return toArticleWithBookResponsePage(articleRepository.findAllByMemberId(memberId, pageable));
     }
 
-    public Page<ArticleWithBookResponse> getArticlesByCategory(String category, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getArticlesByMember(UUID requesterId, UUID memberId, Pageable pageable) {
+        UUID accessibleMemberId = organizationAccessService.getAccessibleMember(requesterId, memberId).getId();
+        return toArticleWithBookResponsePage(articleRepository.findAllByMemberId(accessibleMemberId, pageable));
+    }
+
+    public Page<ArticleWithBookResponse> getArticlesByCategory(UUID requesterId, String category, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
         return toArticleWithBookResponsePage(
                 articleRepository.findAllByCategory(
                         Category.fromDisplayName(category),
+                        organizationId,
                         applyDefaultCreatedAtSort(pageable)
                 )
         );
@@ -233,6 +247,11 @@ public class ArticleService {
     public CategoryCountResponse getArticleCountByCategory(UUID memberId) {
         List<Object[]> result = articleRepository.countArticlesByCategoryForMember(memberId);
         return toCategoryCountResponse(result);
+    }
+
+    public CategoryCountResponse getArticleCountByCategory(UUID requesterId, UUID targetMemberId) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
+        return getArticleCountByCategory(memberId);
     }
 
     public CategoryCountResponse getWeeklyArticleCountByCategory(UUID memberId) {
@@ -244,6 +263,11 @@ public class ArticleService {
         );
 
         return toCategoryCountResponse(result);
+    }
+
+    public CategoryCountResponse getWeeklyArticleCountByCategory(UUID requesterId, UUID targetMemberId) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
+        return getWeeklyArticleCountByCategory(memberId);
     }
 
     private CategoryCountResponse toCategoryCountResponse(List<Object[]> result) {
@@ -402,6 +426,7 @@ public class ArticleService {
     }
 
     public Page<ArticleWithBookResponse> getHomeArticles(UUID myId, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(myId);
         List<UUID> friendIds = friendshipRepository.findFriendIdsOf(myId, FriendshipStatus.ACCEPTED);
         List<UUID> cheererIds = cheeringRepository.findDistinctCheererIdsWhoCheeredMyArticles(myId);
 
@@ -409,12 +434,19 @@ public class ArticleService {
             return Page.empty(pageable);
         }
 
-        Set<UUID> friendSet = new HashSet<>(friendIds);
-        List<UUID> cheererOnly = cheererIds.stream()
+        List<UUID> filteredFriendIds = organizationAccessService.filterMemberIdsByOrganization(myId, friendIds);
+        List<UUID> filteredCheererIds = organizationAccessService.filterMemberIdsByOrganization(myId, cheererIds);
+
+        if (filteredFriendIds.isEmpty() && filteredCheererIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Set<UUID> friendSet = new HashSet<>(filteredFriendIds);
+        List<UUID> cheererOnly = filteredCheererIds.stream()
                 .filter(id -> !friendSet.contains(id))
                 .toList();
 
-        Page<Article> page = articleRepository.findCombinedFeed(friendIds, cheererOnly, pageable);
+        Page<Article> page = articleRepository.findCombinedFeed(filteredFriendIds, cheererOnly, organizationId, pageable);
         return toArticleWithBookResponsePage(page);
     }
 
@@ -474,25 +506,29 @@ public class ArticleService {
         return memberCategoryCounterRepository.saveAndFlush(c);
     }
 
-    public Page<ArticleWithBookResponse> getArticlesByMemberAndCategory(UUID memberId, String category, Pageable pageable) {
+    public Page<ArticleWithBookResponse> getArticlesByMemberAndCategory(UUID requesterId, UUID memberId, String category, Pageable pageable) {
+        UUID accessibleMemberId = organizationAccessService.getAccessibleMember(requesterId, memberId).getId();
         return toArticleWithBookResponsePage(
                 articleRepository.findByMemberIdWithCategory(
-                        memberId,
+                        accessibleMemberId,
                         Category.fromDisplayName(category),
                         applyDefaultCreatedAtSort(pageable)
                 )
         );
     }
 
-    public Page<ArticleWithBookResponse> getAllArticlesFeed(Pageable pageable) {
-        Page<Article> page = articleRepository.findAllByIsDeletedFalse(applyDefaultCreatedAtSort(pageable));
+    public Page<ArticleWithBookResponse> getAllArticlesFeed(UUID requesterId, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        Page<Article> page = articleRepository.findAllByIsDeletedFalse(organizationId, applyDefaultCreatedAtSort(pageable));
         return toArticleWithBookResponsePage(page);
     }
 
     public Page<ArticleWithBookResponse> getCheeringRelatedArticlesFeed(UUID memberId, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(memberId);
         // 응원 관계 사용자들의 게시글 조회
         Page<Article> page = articleRepository.findByCheeringRelatedMembers(
                 memberId,
+                organizationId,
                 applyDefaultCreatedAtSort(pageable)
         );
 
@@ -517,9 +553,19 @@ public class ArticleService {
         return new TotalCharacterCountResponse(totalCount);
     }
 
+    public TotalCharacterCountResponse getTotalCharacterCountByDateRange(UUID requesterId, UUID targetMemberId, LocalDateTime startDate, LocalDateTime endDate) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
+        return getTotalCharacterCountByDateRange(memberId, startDate, endDate);
+    }
+
     public ArticleCountResponse getArticleCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
         long articleCount = articleRepository.countArticlesByDateRange(memberId, startDate, endDate);
         return new ArticleCountResponse(articleCount);
+    }
+
+    public ArticleCountResponse getArticleCountByDateRange(UUID requesterId, UUID targetMemberId, LocalDateTime startDate, LocalDateTime endDate) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
+        return getArticleCountByDateRange(memberId, startDate, endDate);
     }
 
     public CategoryCharacterCountResponse getCharacterCountByCategory(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
@@ -548,13 +594,14 @@ public class ArticleService {
         return CategoryCharacterCountResponse.fromObjectList(completeResult);
     }
 
-    public CategoryRankingResponse getCategoryRanking() {
+    public CategoryRankingResponse getCategoryRanking(UUID requesterId) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
         Map<Category, List<CategoryRankingResponse.CategoryRankingMember>> rankingMap = new LinkedHashMap<>();
         for (Category category : Category.values()) {
             rankingMap.put(category, new ArrayList<>());
         }
 
-        for (Object[] row : articleRepository.countArticlesByCategoryAndMember()) {
+        for (Object[] row : articleRepository.countArticlesByCategoryAndMember(organizationId)) {
             Category category = (Category) row[0];
             UUID memberId = (UUID) row[1];
             String nickName = (String) row[2];

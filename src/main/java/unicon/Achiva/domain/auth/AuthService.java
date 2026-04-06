@@ -15,6 +15,9 @@ import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.dto.MemberResponse;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationErrorCode;
+import unicon.Achiva.domain.organization.OrganizationService;
+import unicon.Achiva.domain.organization.entity.Organization;
 import unicon.Achiva.domain.push.infrastructure.LinkTokenRepository;
 import unicon.Achiva.domain.push.infrastructure.PushTokenRepository;
 import unicon.Achiva.global.response.GeneralException;
@@ -38,6 +41,7 @@ public class AuthService {
     private final PushTokenRepository pushTokenRepository;
     private final LinkTokenRepository linkTokenRepository;
     private final ArticleRepository articleRepository;
+    private final OrganizationService organizationService;
 
     @Transactional
     public CreateMemberResponse signup(MemberRequest requestDto) {
@@ -49,6 +53,11 @@ public class AuthService {
             throw new GeneralException(MemberErrorCode.DUPLICATE_EMAIL);
         }
 
+        Organization organization = organizationService.getSignupOrganization(
+                requestDto.getOrganizationId(),
+                requestDto.getOrganizationPassword()
+        );
+
         Member member = Member.builder()
                 .id(getMemberIdFromToken())
                 .email(email)
@@ -58,6 +67,7 @@ public class AuthService {
                 .gender(requestDto.getGender() != null ? requestDto.getGender() : null)
                 .region(requestDto.getRegion() != null ? requestDto.getRegion() : null)
                 .role(Role.USER)
+                .organization(organization)
                 .build();
 
         Member savedMember = memberRepository.save(member);
@@ -317,42 +327,7 @@ public class AuthService {
      */
     @Transactional
     public Member autoSignupSocialUser() {
-        UUID memberId = getMemberIdFromToken();
-
-        // 이미 Member가 존재하면 반환
-        if (memberRepository.existsById(memberId)) {
-            return memberRepository.findById(memberId)
-                    .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
-        }
-
-        // 소셜 로그인 사용자가 아니면 예외
-        if (!isGoogleUser() && !isAppleUser()) {
-            throw new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND);
-        }
-
-        // 이메일 가져오기
-        String email = getEmailFromToken()
-                .orElse(oidcUserInfoService.getEmailFromUserInfo()
-                        .orElseThrow(() -> new GeneralException(MemberErrorCode.INVALID_TOKEN)));
-
-        // 닉네임 자동 생성
-        String nickName = determineNickname(email);
-
-        // 닉네임 중복 시 랜덤 생성
-        while (memberRepository.existsByNickName(nickName)) {
-            nickName = NicknameGeneratorUtil.generate();
-        }
-
-        // Member 생성
-        Member member = Member.builder()
-                .id(memberId)
-                .email(email)
-                .nickName(nickName)
-                .profileImageUrl("https://achivadata.s3.ap-northeast-2.amazonaws.com/default-profile-image.png")
-                .role(Role.USER)
-                .build();
-
-        return memberRepository.save(member);
+        throw new GeneralException(OrganizationErrorCode.ORGANIZATION_REQUIRED);
     }
 
     /**

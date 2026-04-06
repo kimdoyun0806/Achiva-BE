@@ -52,30 +52,32 @@ public class FriendshipController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "친구 신청 거절 성공"));
     }
 
-    @Operation(summary = "친구 목록 조회")
+    @Operation(summary = "친구 목록 조회", description = "같은 organization의 친구 관계만 조회됩니다.")
     @GetMapping("/api/friendships")
     public ResponseEntity<ApiResponseForm<List<FriendshipResponse>>> getFriendList(
     ) {
         UUID memberId = authService.getMemberIdFromToken();
-        List<FriendshipResponse> friendList = friendshipService.getFriends(memberId);
+        List<FriendshipResponse> friendList = friendshipService.getFriends(memberId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(friendList, "친구 목록 조회 성공"));
     }
 
-    @Operation(summary = "특정 유저 친구 목록 조회")
+    @Operation(summary = "특정 유저 친구 목록 조회", description = "같은 organization의 유저에 대해서만 조회할 수 있습니다.")
     @GetMapping("/api/friendships/{memberId}")
     public ResponseEntity<ApiResponseForm<List<FriendshipResponse>>> getFriendListByMemberId(
             @PathVariable UUID memberId
     ) {
-        List<FriendshipResponse> friendList = friendshipService.getFriends(memberId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        List<FriendshipResponse> friendList = friendshipService.getFriends(requesterId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(friendList, "특정 유저 친구 목록 조회 성공"));
     }
 
-    @Operation(summary = "특정 유저 친구 목록 조회 (닉네임으로)")
+    @Operation(summary = "특정 유저 친구 목록 조회 (닉네임으로)", description = "같은 organization의 유저에 대해서만 조회할 수 있습니다.")
     @GetMapping("/api2/friendships/{nickname}")
     public ResponseEntity<ApiResponseForm<List<FriendshipResponse>>> getFriendListByNickname(
             @PathVariable String nickname
     ) {
-        List<FriendshipResponse> friendList = friendshipService.getFriendsByNickname(nickname);
+        UUID requesterId = authService.getMemberIdFromToken();
+        List<FriendshipResponse> friendList = friendshipService.getFriendsByNickname(requesterId, nickname);
         return ResponseEntity.ok(ApiResponseForm.success(friendList, "닉네임으로 친구 목록 조회 성공"));
     }
 

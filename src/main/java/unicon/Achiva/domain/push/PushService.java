@@ -13,6 +13,7 @@ import unicon.Achiva.domain.friendship.infrastructure.FriendshipRepository;
 import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.domain.push.dto.*;
 import unicon.Achiva.domain.push.entity.LinkToken;
 import unicon.Achiva.domain.push.entity.PushToken;
@@ -38,6 +39,7 @@ public class PushService {
     private final PushTokenRepository pushTokenRepository;
     private final FriendshipRepository friendshipRepository;
     private final ExpoPushClient expoPushClient;
+    private final OrganizationAccessService organizationAccessService;
 
     @Value("${app.security.link-token-secret}")
     private String linkTokenSecret;
@@ -234,12 +236,12 @@ public class PushService {
         List<PushToken> tokens;
         if (targetMemberId == null) {
             // 전체 발송 (pushEnabled && isActive)
-            tokens = pushTokenRepository.findAllActiveByPushEnabled();
+            Long organizationId = organizationAccessService.getOrganizationId(senderId);
+            tokens = pushTokenRepository.findAllActiveByPushEnabledAndOrganizationId(organizationId);
             log.info("[Push] 전체 푸시 전송 시작 - sender: {}, targetCount: {}", senderId, tokens.size());
         } else {
             // 특정 사용자에게만
-            Member target = memberRepository.findById(targetMemberId)
-                    .orElseThrow(() -> new GeneralException(PushErrorCode.MEMBER_NOT_FOUND_FOR_PUSH));
+            Member target = organizationAccessService.getAccessibleMember(senderId, targetMemberId);
 
             if (!target.isPushEnabled()) {
                 log.warn("[Push] 푸시 비활성화 사용자 - memberId: {}", targetMemberId);
@@ -325,6 +327,12 @@ public class PushService {
                 FriendshipStatus.ACCEPTED);
 
         List<IndividualFriendPushSetting> individualSettings = friendships.stream()
+                .filter(f -> {
+                    UUID otherId = f.getRequester().getId().equals(memberId)
+                            ? f.getReceiver().getId()
+                            : f.getRequester().getId();
+                    return organizationAccessService.isSameOrganization(memberId, otherId);
+                })
                 .map(f -> {
                     boolean isRequester = f.getRequester().getId().equals(memberId);
                     Member friend = isRequester ? f.getReceiver() : f.getRequester();

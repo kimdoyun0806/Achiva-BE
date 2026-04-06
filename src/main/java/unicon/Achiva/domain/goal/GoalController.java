@@ -163,7 +163,8 @@ public class GoalController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime endDate
     ) {
-        TotalClickCountResponse response = goalService.getTotalClickCountByDateRange(memberId, startDate, endDate);
+        UUID requesterId = authService.getMemberIdFromToken();
+        TotalClickCountResponse response = goalService.getTotalClickCountByDateRange(requesterId, memberId, startDate, endDate);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 특정 유저의 목표 클릭 수 합계 조회 성공"));
     }
 }

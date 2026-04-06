@@ -14,6 +14,7 @@ import unicon.Achiva.domain.goal.infrastructure.GoalRepository;
 import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.global.response.GeneralException;
 
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ public class GoalService {
 
     private final GoalRepository goalRepository;
     private final MemberRepository memberRepository;
+    private final OrganizationAccessService organizationAccessService;
 
     @Transactional
     public GoalResponse createGoal(GoalRequest request, UUID memberId) {
@@ -134,5 +136,10 @@ public class GoalService {
     public TotalClickCountResponse getTotalClickCountByDateRange(UUID memberId, LocalDateTime startDate, LocalDateTime endDate) {
         long totalClickCount = goalRepository.sumClickCountByDateRange(memberId, startDate, endDate);
         return new TotalClickCountResponse(totalClickCount);
+    }
+
+    public TotalClickCountResponse getTotalClickCountByDateRange(UUID requesterId, UUID targetMemberId, LocalDateTime startDate, LocalDateTime endDate) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
+        return getTotalClickCountByDateRange(memberId, startDate, endDate);
     }
 }

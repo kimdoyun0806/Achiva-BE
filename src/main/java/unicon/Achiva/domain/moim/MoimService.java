@@ -24,6 +24,7 @@ import unicon.Achiva.domain.moim.entity.MoimScore;
 import unicon.Achiva.domain.moim.repository.MoimMemberRepository;
 import unicon.Achiva.domain.moim.repository.MoimRepository;
 import unicon.Achiva.domain.moim.repository.MoimScoreRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.global.response.GeneralException;
 
 import java.time.DayOfWeek;
@@ -46,6 +47,7 @@ public class MoimService {
     private final MemberRepository memberRepository;
     private final ArticleRepository articleRepository;
     private final MoimScoreRepository moimScoreRepository;
+    private final OrganizationAccessService organizationAccessService;
 
     @Transactional
     public MoimResponse createMoim(MoimCreateRequest request, UUID memberId) {
@@ -59,6 +61,7 @@ public class MoimService {
         }
 
         Moim moim = Moim.builder()
+                .organization(member.getOrganization())
                 .name(request.getName())
                 .description(request.getDescription())
                 .maxMember(request.getMaxMember())
@@ -85,20 +88,21 @@ public class MoimService {
         return MoimResponse.from(savedMoim);
     }
 
-    public Page<MoimResponse> getMoims(String keyword, Boolean isOfficial, Pageable pageable) {
-        Page<Moim> moims = moimRepository.findMoimsBySearchAndCategory(keyword, isOfficial, pageable);
+    public Page<MoimResponse> getMoims(UUID requesterId, String keyword, Boolean isOfficial, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        Page<Moim> moims = moimRepository.findMoimsBySearchAndCategory(organizationId, keyword, isOfficial, pageable);
         return moims.map(MoimResponse::from);
     }
 
     public MoimDetailResponse getMoimDetail(Long moimId, UUID currentMemberId) {
-        Moim moim = moimRepository.findById(moimId)
-                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+        Moim moim = organizationAccessService.getAccessibleMoim(currentMemberId, moimId);
 
         return buildMoimDetailResponse(moim, currentMemberId);
     }
 
-    public List<MoimRankingResponse> getMoimsForRanking() {
-        List<Moim> moims = moimRepository.findAllWithMembers();
+    public List<MoimRankingResponse> getMoimsForRanking(UUID requesterId) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        List<Moim> moims = moimRepository.findAllWithMembers(organizationId);
         if (moims.isEmpty()) {
             return List.of();
         }
@@ -187,8 +191,7 @@ public class MoimService {
      * 모임 멤버들이 작성한 게시물 피드
      */
     public Page<ArticleResponse> getMoimFeed(Long moimId, UUID currentMemberId, Pageable pageable) {
-        Moim moim = moimRepository.findById(moimId)
-                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+        Moim moim = organizationAccessService.getAccessibleMoim(currentMemberId, moimId);
 
         List<UUID> memberIds = moim.getMembers().stream()
                 .map(mm -> mm.getMember().getId())
@@ -203,8 +206,7 @@ public class MoimService {
     }
 
     public List<MoimResponse> getMyMoims(UUID memberId) {
-        memberRepository.findById(memberId)
-                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+        organizationAccessService.getMember(memberId);
 
         List<MoimMember> myMemberships = moimMemberRepository.findByMemberId(memberId);
         return myMemberships.stream()
@@ -213,9 +215,8 @@ public class MoimService {
                 .toList();
     }
 
-    public Page<ArticleResponse> getMoimFeedByMember(UUID memberId, Pageable pageable) {
-        memberRepository.findById(memberId)
-                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+    public Page<ArticleResponse> getMoimFeedByMember(UUID requesterId, UUID targetMemberId, Pageable pageable) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
 
         List<UUID> joinedMemberIds = moimMemberRepository.findDistinctJoinedMemberIdsByMemberId(memberId);
         if (joinedMemberIds.isEmpty()) {
@@ -228,8 +229,7 @@ public class MoimService {
 
     @Transactional
     public void joinMoim(Long moimId, UUID memberId, String inputPassword) {
-        Moim moim = moimRepository.findById(moimId)
-                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+        Moim moim = organizationAccessService.getAccessibleMoim(memberId, moimId);
 
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
@@ -263,8 +263,7 @@ public class MoimService {
 
     @Transactional
     public MoimDetailResponse updateMoimSettings(Long moimId, UUID memberId, MoimUpdateRequest request) {
-        Moim moim = moimRepository.findById(moimId)
-                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+        Moim moim = organizationAccessService.getAccessibleMoim(memberId, moimId);
 
         boolean isLeader = moim.getMembers().stream()
                 .anyMatch(mm -> mm.getMember().getId().equals(memberId) && mm.getRole() == MoimRole.LEADER);
@@ -289,8 +288,7 @@ public class MoimService {
 
     @Transactional
     public void leaveMoim(Long moimId, UUID memberId) {
-        Moim moim = moimRepository.findById(moimId)
-                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+        Moim moim = organizationAccessService.getAccessibleMoim(memberId, moimId);
 
         MoimMember moimMember = moimMemberRepository.findByMoimIdAndMemberId(moimId, memberId)
                 .orElseThrow(() -> new GeneralException(MoimErrorCode.UNAUTHORIZED_ACTION));
@@ -320,8 +318,8 @@ public class MoimService {
 
     @Transactional
     public void removeMoimMember(Long moimId, UUID requesterId, UUID targetMemberId) {
-        Moim moim = moimRepository.findById(moimId)
-                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+        organizationAccessService.validateSameOrganization(requesterId, targetMemberId);
+        Moim moim = organizationAccessService.getAccessibleMoim(requesterId, moimId);
 
         boolean isLeader = moim.getMembers().stream()
                 .anyMatch(mm -> mm.getMember().getId().equals(requesterId) && mm.getRole() == MoimRole.LEADER);
@@ -345,8 +343,7 @@ public class MoimService {
 
     @Transactional
     public void deleteMoim(Long moimId, UUID memberId) {
-        Moim moim = moimRepository.findById(moimId)
-                .orElseThrow(() -> new GeneralException(MoimErrorCode.MOIM_NOT_FOUND));
+        Moim moim = organizationAccessService.getAccessibleMoim(memberId, moimId);
 
         boolean isLeader = moim.getMembers().stream()
                 .anyMatch(mm -> mm.getMember().getId().equals(memberId) && mm.getRole() == MoimRole.LEADER);

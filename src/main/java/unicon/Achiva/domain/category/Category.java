@@ -8,10 +8,9 @@ import java.util.Arrays;
 
 @Getter
 public enum Category {
-    GENERAL("일반"),
-    PRAY("기도"),
-    BIBLE("성경"),
-    MEDITATION("묵상");
+    GRACE("오늘 은혜"),
+    BIBLE("성경 일독"),
+    ALBUM("교회 앨범");
 
     private final String description;
 

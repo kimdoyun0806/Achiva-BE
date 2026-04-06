@@ -9,6 +9,7 @@ import org.hibernate.validator.constraints.URL;
 import unicon.Achiva.domain.article.entity.Article;
 import unicon.Achiva.domain.auth.Role;
 import unicon.Achiva.domain.member.Gender;
+import unicon.Achiva.domain.organization.entity.Organization;
 import unicon.Achiva.global.common.BaseEntity;
 
 import java.time.LocalDate;
@@ -49,6 +50,10 @@ public class Member extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "varchar(20)")
     private Role role;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Builder.Default
     @OneToMany(mappedBy = "member", cascade = CascadeType.REMOVE, orphanRemoval = true)

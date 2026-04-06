@@ -52,7 +52,7 @@ public class ArticleRepositoryImpl implements ArticleRepositoryCustom {
     }
 
     @Override
-    public Page<Article> searchByCondition(SearchArticleCondition condition, Pageable pageable) {
+    public Page<Article> searchByCondition(SearchArticleCondition condition, Long organizationId, Pageable pageable) {
         String kw = trimToNull(condition.getKeyword());
         Category category = Category.fromDisplayName(condition.getCategory());
 
@@ -65,6 +65,7 @@ public class ArticleRepositoryImpl implements ArticleRepositoryCustom {
         List<Predicate> preds = new ArrayList<>();
 
         preds.add(cb.isFalse(a.get("isDeleted")));
+        preds.add(cb.equal(a.get("member").get("organization").get("id"), organizationId));
 
         Subquery<java.util.UUID> mainArticleSubquery = cq.subquery(java.util.UUID.class);
         Root<Book> bookRoot = mainArticleSubquery.from(Book.class);
@@ -113,6 +114,7 @@ public class ArticleRepositoryImpl implements ArticleRepositoryCustom {
 
         List<Predicate> countPreds = new ArrayList<>();
         countPreds.add(cb.isFalse(ca.get("isDeleted")));
+        countPreds.add(cb.equal(ca.get("member").get("organization").get("id"), organizationId));
 
         Subquery<java.util.UUID> countMainArticleSubquery = countCq.subquery(java.util.UUID.class);
         Root<Book> countBookRoot = countMainArticleSubquery.from(Book.class);

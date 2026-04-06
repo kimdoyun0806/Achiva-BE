@@ -45,6 +45,12 @@ public class MemberResponse {
     @Schema(description = "현재까지 작성한 게시글 수", example = "12")
     private long articleCount;
 
+    @Schema(description = "상위 모임 ID", example = "1")
+    private Long organizationId;
+
+    @Schema(description = "상위 모임 이름", example = "Achiva University")
+    private String organizationName;
+
     @Schema(description = "응답 생성 시각", example = "2026-03-28T12:34:56")
     private LocalDateTime createdAt;
 
@@ -61,6 +67,8 @@ public class MemberResponse {
                 .description(member.getDescription())
                 .role(member.getRole())
                 .articleCount(articleCount)
+                .organizationId(member.getOrganization().getId())
+                .organizationName(member.getOrganization().getName())
                 .createdAt(LocalDateTime.now())
                 .build();
     }

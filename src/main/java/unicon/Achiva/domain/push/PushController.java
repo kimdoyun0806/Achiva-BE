@@ -1,6 +1,7 @@
 package unicon.Achiva.domain.push;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +64,7 @@ public class PushController {
      * @return PushRegisterResponse (success, message)
      */
     @Operation(summary = "Expo 푸시 토큰 등록 - CognitoJWT 불필요")
+    @SecurityRequirements
     @PostMapping("/register")
     public ResponseEntity<PushRegisterResponse> registerPushToken(
             @Valid @RequestBody PushRegisterRequest request) {

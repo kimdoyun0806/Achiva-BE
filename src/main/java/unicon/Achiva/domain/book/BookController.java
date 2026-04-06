@@ -40,26 +40,28 @@ public class BookController {
     @GetMapping("/my")
     public Page<BookResponse> getMyBooks(@ParameterObject Pageable pageable) {
         UUID memberId = authService.getMemberIdFromToken();
-        return bookService.getBooksByMember(memberId, pageable);
+        return bookService.getBooksByMember(memberId, memberId, pageable);
     }
 
     /**
      * ✅ 단일 책 상세 조회
      */
-    @Operation(summary = "책 상세 조회", description = "책 ID를 기반으로 단일 Book 정보를 조회합니다.")
+    @Operation(summary = "책 상세 조회", description = "같은 organization 범위에서만 Book 정보를 조회합니다.")
     @GetMapping("/{bookId}")
     public BookResponse getBook(
             @Parameter(description = "조회할 Book의 ID") @PathVariable UUID bookId) {
-        return bookService.getBook(bookId);
+        UUID memberId = authService.getMemberIdFromToken();
+        return bookService.getBook(memberId, bookId);
     }
 
     /**
      * ✅ 모든 책 조회 (공개 피드 or 관리자용)
      */
-    @Operation(summary = "전체 책 조회", description = "모든 Book을 페이징 형태로 조회합니다. (관리자 또는 공개용)")
+    @Operation(summary = "전체 책 조회", description = "서비스 전체가 아니라 로그인한 사용자의 organization 범위 Book 목록을 조회합니다.")
     @GetMapping
     public Page<BookResponse> getAllBooks(@ParameterObject Pageable pageable) {
-        return bookService.getAllBooks(pageable);
+        UUID memberId = authService.getMemberIdFromToken();
+        return bookService.getAllBooks(memberId, pageable);
     }
 
     /**

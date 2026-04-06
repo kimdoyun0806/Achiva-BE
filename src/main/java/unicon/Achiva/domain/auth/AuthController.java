@@ -1,6 +1,7 @@
 package unicon.Achiva.domain.auth;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +26,8 @@ public class AuthController {
 //        return ResponseEntity.ok(ApiResponseForm.created(createMemberResponse, "회원가입 성공"));
 //    }
 
-    @Operation(summary = "회원등록. presigned URL 발급 및 업로드가 선행되어야 함. - JWT 필요")
+    @Operation(summary = "회원등록. presigned URL 발급 및 업로드가 선행되어야 함. - JWT 필요",
+            description = "organizationId는 필수입니다. Organization이 비밀번호를 요구하는 경우 organizationPassword도 함께 전달해야 합니다.")
     @PostMapping("api/auth/register")
     public ResponseEntity<ApiResponseForm<CreateMemberResponse>> signup(@RequestBody MemberRequest requestDto) {
         CreateMemberResponse createMemberResponse = authService.signup(requestDto);
@@ -65,6 +67,7 @@ public class AuthController {
     }
 
     @Operation(summary = "이메일 중복 체크 - JWT 필요 X")
+    @SecurityRequirements
     @GetMapping("api/auth/check-email")
     public ResponseEntity<ApiResponseForm<CheckEmailResponse>> checkEmailDuplication(@RequestParam String email) {
         CheckEmailResponse checkEmailResponse = authService.validateDuplicateEmail(email);
@@ -72,6 +75,7 @@ public class AuthController {
     }
 
     @Operation(summary = "닉네임 중복 체크 - JWT 필요 X")
+    @SecurityRequirements
     @GetMapping("api/auth/check-nickname")
     public ResponseEntity<ApiResponseForm<CheckNicknameResponse>> checkNicknameDuplication(@RequestParam String nickname) {
         CheckNicknameResponse checkNicknameResponse = authService.validateDuplicateNickName(nickname);

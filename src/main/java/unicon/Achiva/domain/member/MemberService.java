@@ -17,6 +17,7 @@ import unicon.Achiva.domain.member.dto.MemberStatsResponse;
 import unicon.Achiva.domain.member.dto.SearchMemberCondition;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.global.response.GeneralException;
 
 import java.util.List;
@@ -33,6 +34,7 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final ArticleRepository articleRepository;
     private final ArticleService articleService;
+    private final OrganizationAccessService organizationAccessService;
 
     public Boolean existsById(UUID memberId) {
         return memberRepository.existsById(memberId);
@@ -44,14 +46,32 @@ public class MemberService {
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
     }
 
+    public MemberResponse getMemberInfo(UUID requesterId, UUID targetMemberId) {
+        Member member = organizationAccessService.getAccessibleMember(requesterId, targetMemberId);
+        return MemberResponse.fromEntity(member, getArticleCount(member.getId()));
+    }
+
     public MemberResponse getMemberInfoByNickname(String nickname) {
         return memberRepository.findByNickName(nickname)
                 .map(member -> MemberResponse.fromEntity(member, getArticleCount(member.getId())))
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
     }
 
-    public Page<MemberResponse> getMembers(SearchMemberCondition condition, Pageable pageable) {
-        Page<Member> members = memberRepository.findByNickNameContainingIgnoreCase(condition.getKeyword(), pageable);
+    public MemberResponse getMemberInfoByNickname(UUID requesterId, String nickname) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        Member member = memberRepository.findByNickNameAndOrganization_Id(nickname, organizationId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+        return MemberResponse.fromEntity(member, getArticleCount(member.getId()));
+    }
+
+    public Page<MemberResponse> getMembers(UUID requesterId, SearchMemberCondition condition, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        String keyword = condition.getKeyword() == null ? "" : condition.getKeyword();
+        Page<Member> members = memberRepository.findByOrganization_IdAndNickNameContainingIgnoreCase(
+                organizationId,
+                keyword,
+                pageable
+        );
         Map<UUID, Long> articleCountMap = getArticleCountMap(
                 members.getContent().stream()
                         .map(Member::getId)
@@ -65,8 +85,9 @@ public class MemberService {
         return new PageImpl<>(content, pageable, members.getTotalElements());
     }
 
-    public List<MemberRankingResponse> getMembersForRanking() {
-        List<Member> members = memberRepository.findAll(Sort.by(Sort.Direction.ASC, "nickName"));
+    public List<MemberRankingResponse> getMembersForRanking(UUID requesterId) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        List<Member> members = memberRepository.findAllByOrganization_Id(organizationId, Sort.by(Sort.Direction.ASC, "nickName"));
         List<UUID> memberIds = members.stream()
                 .map(Member::getId)
                 .toList();

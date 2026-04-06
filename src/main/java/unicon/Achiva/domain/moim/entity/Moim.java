@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import unicon.Achiva.domain.organization.entity.Organization;
 import unicon.Achiva.global.common.LongBaseEntity;
 
 import java.util.ArrayList;
@@ -16,6 +17,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Moim extends LongBaseEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, length = 100)
     private String name;

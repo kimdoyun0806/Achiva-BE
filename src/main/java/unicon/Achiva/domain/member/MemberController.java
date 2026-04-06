@@ -39,38 +39,42 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "내 정보 조회 성공"));
     }
 
-    @Operation(summary = "특정 유저 정보 조회")
+    @Operation(summary = "특정 유저 정보 조회", description = "같은 organization의 유저만 조회할 수 있습니다.")
     @GetMapping("/api/members/{memberId}")
     public ResponseEntity<ApiResponseForm<MemberResponse>> getMemberInfo(
             @PathVariable UUID memberId
     ) {
-        MemberResponse memberResponse = memberService.getMemberInfo(memberId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        MemberResponse memberResponse = memberService.getMemberInfo(requesterId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "유저 정보 조회 성공"));
     }
 
-    @Operation(summary = "닉네임으로 유저 정보 조회")
+    @Operation(summary = "닉네임으로 유저 정보 조회", description = "같은 organization의 유저만 조회할 수 있습니다.")
     @GetMapping("/api2/members/{nickname}")
     public ResponseEntity<ApiResponseForm<MemberResponse>> getMemberInfoByNickname(
             @PathVariable String nickname
     ) {
-        MemberResponse memberResponse = memberService.getMemberInfoByNickname(nickname);
+        UUID requesterId = authService.getMemberIdFromToken();
+        MemberResponse memberResponse = memberService.getMemberInfoByNickname(requesterId, nickname);
         return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "닉네임으로 유저 정보 조회 성공"));
     }
 
-    @Operation(summary = "닉네임으로 유저 목록 검색")
+    @Operation(summary = "닉네임으로 유저 목록 검색", description = "로그인한 사용자의 organization 범위 안에서만 검색합니다.")
     @GetMapping("/api/members")
     public ResponseEntity<ApiResponseForm<Page<MemberResponse>>> getMembers(
             SearchMemberCondition condition,
             @ParameterObject Pageable pageable
     ) {
-        Page<MemberResponse> members = memberService.getMembers(condition, pageable);
+        UUID requesterId = authService.getMemberIdFromToken();
+        Page<MemberResponse> members = memberService.getMembers(requesterId, condition, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(members, "닉네임으로 유저 검색 성공"));
     }
 
-    @Operation(summary = "전체 유저 랭킹 데이터 조회", description = "랭킹 기능을 위한 임시 API")
+    @Operation(summary = "전체 유저 랭킹 데이터 조회", description = "서비스 전체가 아니라 로그인한 사용자의 organization 기준 랭킹 데이터입니다.")
     @GetMapping("/api/members/ranking")
     public ResponseEntity<ApiResponseForm<List<MemberRankingResponse>>> getMembersForRanking() {
-        List<MemberRankingResponse> members = memberService.getMembersForRanking();
+        UUID requesterId = authService.getMemberIdFromToken();
+        List<MemberRankingResponse> members = memberService.getMembersForRanking(requesterId);
         return ResponseEntity.ok(ApiResponseForm.success(members, "전체 유저 랭킹 데이터 조회 성공"));
     }
 
@@ -87,17 +91,19 @@ public class MemberController {
 
     @GetMapping("/api/members/{memberId}/count-by-category")
     public ResponseEntity<ApiResponseForm<CategoryCountResponse>> getArticleCountByCategory(
-            @RequestParam UUID memberId
+            @PathVariable UUID memberId
     ) {
-        CategoryCountResponse result = articleService.getArticleCountByCategory(memberId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        CategoryCountResponse result = articleService.getArticleCountByCategory(requesterId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(result, "카테고리별 작성 수 조회 성공"));
     }
 
     @GetMapping("/api/members/{memberId}/weekly-count-by-category")
     public ResponseEntity<ApiResponseForm<CategoryCountResponse>> getWeeklyArticleCountByCategory(
-            @RequestParam UUID memberId
+            @PathVariable UUID memberId
     ) {
-        CategoryCountResponse result = articleService.getWeeklyArticleCountByCategory(memberId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        CategoryCountResponse result = articleService.getWeeklyArticleCountByCategory(requesterId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(result, "이번 주 카테고리별 작성 수 조회 성공"));
     }
 
