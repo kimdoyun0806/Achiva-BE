@@ -4,6 +4,19 @@
 -- Description: Baseline schema aligned with the current JPA entities
 -- ============================================================================
 
+CREATE TABLE IF NOT EXISTS organization (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    password VARCHAR(255),
+    active BIT(1) NOT NULL,
+    created_at DATETIME(6),
+    updated_at DATETIME(6),
+    is_deleted BIT(1) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_organization_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS member (
     id BINARY(16) NOT NULL,
     email VARCHAR(255) NOT NULL,
@@ -14,13 +27,16 @@ CREATE TABLE IF NOT EXISTS member (
     region VARCHAR(255),
     description VARCHAR(500),
     role VARCHAR(20),
+    organization_id BIGINT NOT NULL,
     push_enabled BIT(1) NOT NULL,
     friend_workout_push_enabled BIT(1) NOT NULL,
     created_at DATETIME(6),
     updated_at DATETIME(6),
     is_deleted BIT(1) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_member_email (email)
+    UNIQUE KEY uk_member_email (email),
+    KEY idx_member_organization_id (organization_id),
+    CONSTRAINT fk_member_organization FOREIGN KEY (organization_id) REFERENCES organization (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS article (
@@ -197,6 +213,7 @@ CREATE TABLE IF NOT EXISTS article_push_history (
 
 CREATE TABLE IF NOT EXISTS moim (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    organization_id BIGINT NOT NULL,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
     max_member INT NOT NULL,
@@ -209,7 +226,9 @@ CREATE TABLE IF NOT EXISTS moim (
     created_at DATETIME(6),
     updated_at DATETIME(6),
     is_deleted BIT(1) NOT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    KEY idx_moim_organization_id (organization_id),
+    CONSTRAINT fk_moim_organization FOREIGN KEY (organization_id) REFERENCES organization (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS moim_member (
