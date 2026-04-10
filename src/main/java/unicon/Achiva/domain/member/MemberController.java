@@ -11,6 +11,7 @@ import unicon.Achiva.domain.article.ArticleService;
 import unicon.Achiva.domain.auth.AuthService;
 import unicon.Achiva.domain.category.CategoryCountResponse;
 import unicon.Achiva.domain.member.dto.ConfirmProfileImageUploadRequest;
+import unicon.Achiva.domain.member.dto.MemberDetailResponse;
 import unicon.Achiva.domain.member.dto.MemberRankingResponse;
 import unicon.Achiva.domain.member.dto.MemberResponse;
 import unicon.Achiva.domain.member.dto.SearchMemberCondition;
@@ -49,6 +50,16 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "유저 정보 조회 성공"));
     }
 
+    @Operation(summary = "특정 유저 상세 정보 조회", description = "같은 organization의 유저만 조회할 수 있습니다.")
+    @GetMapping("/api/members/{memberId}/detail")
+    public ResponseEntity<ApiResponseForm<MemberDetailResponse>> getMemberDetailInfo(
+            @PathVariable UUID memberId
+    ) {
+        UUID requesterId = authService.getMemberIdFromToken();
+        MemberDetailResponse memberResponse = memberService.getMemberDetailInfo(requesterId, memberId);
+        return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "유저 상세 정보 조회 성공"));
+    }
+
     @Operation(summary = "닉네임으로 유저 정보 조회", description = "같은 organization의 유저만 조회할 수 있습니다.")
     @GetMapping("/api2/members/{nickname}")
     public ResponseEntity<ApiResponseForm<MemberResponse>> getMemberInfoByNickname(
@@ -57,6 +68,16 @@ public class MemberController {
         UUID requesterId = authService.getMemberIdFromToken();
         MemberResponse memberResponse = memberService.getMemberInfoByNickname(requesterId, nickname);
         return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "닉네임으로 유저 정보 조회 성공"));
+    }
+
+    @Operation(summary = "닉네임으로 유저 상세 정보 조회", description = "같은 organization의 유저만 조회할 수 있습니다.")
+    @GetMapping("/api2/members/{nickname}/detail")
+    public ResponseEntity<ApiResponseForm<MemberDetailResponse>> getMemberDetailInfoByNickname(
+            @PathVariable String nickname
+    ) {
+        UUID requesterId = authService.getMemberIdFromToken();
+        MemberDetailResponse memberResponse = memberService.getMemberDetailInfoByNickname(requesterId, nickname);
+        return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "닉네임으로 유저 상세 정보 조회 성공"));
     }
 
     @Operation(summary = "닉네임으로 유저 목록 검색", description = "로그인한 사용자의 organization 범위 안에서만 검색합니다.")

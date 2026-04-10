@@ -144,22 +144,34 @@ public class CheeringService {
 
     public List<CategoryStatDto> getReceivedStats(UUID requesterId, UUID memberId) {
         UUID accessibleMemberId = organizationAccessService.getAccessibleMember(requesterId, memberId).getId();
-        return cheeringRepository.receivedStatsByCategory(accessibleMemberId, POINTS_PER_CHEER).stream()
+        return getReceivedStats(accessibleMemberId);
+    }
+
+    public List<CategoryStatDto> getReceivedStats(UUID memberId) {
+        return cheeringRepository.receivedStatsByCategory(memberId, POINTS_PER_CHEER).stream()
                 .map(CategoryStatProjection::toDto)
                 .toList();
     }
 
     public TotalSendingCheeringScoreResponse getTotalGivenPoints(UUID requesterId, UUID memberId) {
         UUID accessibleMemberId = organizationAccessService.getAccessibleMember(requesterId, memberId).getId();
+        return getTotalGivenPoints(accessibleMemberId);
+    }
+
+    public TotalSendingCheeringScoreResponse getTotalGivenPoints(UUID memberId) {
         return new TotalSendingCheeringScoreResponse(
-                cheeringRepository.totalGivenCount(accessibleMemberId) * POINTS_PER_CHEER
+                cheeringRepository.totalGivenCount(memberId) * POINTS_PER_CHEER
         );
     }
 
     public TotalReceivedCheeringScoreResponse getTotalReceivedPoints(UUID requesterId, UUID memberId) {
         UUID accessibleMemberId = organizationAccessService.getAccessibleMember(requesterId, memberId).getId();
+        return getTotalReceivedPoints(accessibleMemberId);
+    }
+
+    public TotalReceivedCheeringScoreResponse getTotalReceivedPoints(UUID memberId) {
         return new TotalReceivedCheeringScoreResponse(
-                cheeringRepository.totalReceivedCount(accessibleMemberId) * POINTS_PER_CHEER
+                cheeringRepository.totalReceivedCount(memberId) * POINTS_PER_CHEER
         );
     }
 
