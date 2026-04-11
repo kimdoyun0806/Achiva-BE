@@ -20,8 +20,8 @@ public class MemberRequest {
     @URL(protocol = "https")
     @Builder.Default
     private String profileImageUrl = "https://achivadata.s3.ap-northeast-2.amazonaws.com/default-profile-image.png";
-    @Schema(description = "닉네임", example = "achiva_user")
-    @Size(min = 2, max = 20)
+    @Schema(description = "닉네임 본문. 해시태그는 서버가 생성합니다.", example = "achiva_user")
+    @Size(min = 2, max = 30)
     private String nickName;
     @Schema(description = "생년월일", example = "2000-01-01")
     @NotNull

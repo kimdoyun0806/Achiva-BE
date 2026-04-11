@@ -1,5 +1,6 @@
 package unicon.Achiva.domain.auth;
 
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class AuthController {
     @Operation(summary = "회원등록. presigned URL 발급 및 업로드가 선행되어야 함. - JWT 필요",
             description = "organizationId는 필수입니다. Organization이 비밀번호를 요구하는 경우 organizationPassword도 함께 전달해야 합니다.")
     @PostMapping("api/auth/register")
-    public ResponseEntity<ApiResponseForm<CreateMemberResponse>> signup(@RequestBody MemberRequest requestDto) {
+    public ResponseEntity<ApiResponseForm<CreateMemberResponse>> signup(@Valid @RequestBody MemberRequest requestDto) {
         CreateMemberResponse createMemberResponse = authService.signup(requestDto);
         return ResponseEntity.ok(ApiResponseForm.created(createMemberResponse, "회원가입 성공"));
     }
@@ -45,7 +46,7 @@ public class AuthController {
     @Operation(summary = "회원 정보 수정")
     @PutMapping("api/auth")
     public ResponseEntity<ApiResponseForm<MemberResponse>> updateMemberInfo(
-            @RequestBody UpdateMemberRequest requestDto) {
+            @Valid @RequestBody UpdateMemberRequest requestDto) {
         UUID memberId = authService.getMemberIdFromToken();
         MemberResponse memberResponse = authService.updateMember(memberId, requestDto);
         return ResponseEntity.ok(ApiResponseForm.success(memberResponse, "회원 정보 수정 성공"));
@@ -74,12 +75,12 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponseForm.success(checkEmailResponse, "이메일 중복 확인 성공"));
     }
 
-    @Operation(summary = "닉네임 중복 체크 - JWT 필요 X")
+    @Operation(summary = "닉네임 사용 가능 여부 확인 - JWT 필요 X")
     @SecurityRequirements
     @GetMapping("api/auth/check-nickname")
     public ResponseEntity<ApiResponseForm<CheckNicknameResponse>> checkNicknameDuplication(@RequestParam String nickname) {
         CheckNicknameResponse checkNicknameResponse = authService.validateDuplicateNickName(nickname);
-        return ResponseEntity.ok(ApiResponseForm.success(checkNicknameResponse, "닉네임 중복 확인 성공"));
+        return ResponseEntity.ok(ApiResponseForm.success(checkNicknameResponse, "닉네임 사용 가능 여부 확인 성공"));
     }
 
 //    @Operation(summary = "이메일로 인증코드 전송 - JWT 필요 X")

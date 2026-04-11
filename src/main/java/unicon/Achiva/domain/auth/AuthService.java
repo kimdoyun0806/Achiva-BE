@@ -22,6 +22,7 @@ import unicon.Achiva.domain.push.infrastructure.LinkTokenRepository;
 import unicon.Achiva.domain.push.infrastructure.PushTokenRepository;
 import unicon.Achiva.global.response.GeneralException;
 import unicon.Achiva.global.utill.NicknameGeneratorUtil;
+import unicon.Achiva.global.utill.NicknameTagUtil;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -34,6 +35,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
+
+    private static final int MIN_NICKNAME_LENGTH = 2;
+    private static final int MAX_NICKNAME_LENGTH = 30;
 
     private final MemberRepository memberRepository;
     private final OIDCUserInfoService oidcUserInfoService;
@@ -76,28 +80,13 @@ public class AuthService {
     }
 
     private String resolveSignupNickname(MemberRequest requestDto, String email) {
-        String requestedNickName = Optional.ofNullable(requestDto.getNickName())
-                .map(String::trim)
-                .filter(nickName -> !nickName.isBlank())
-                .orElse(null);
+        String requestedNickName = normalizeRequestedNickname(requestDto.getNickName());
 
         if (requestedNickName != null) {
-            validateDuplicateNickName(requestedNickName);
-            return requestedNickName;
+            return generateUniqueTaggedNickname(requestedNickName);
         }
 
-        String nickName = determineNickname(email);
-        if (memberRepository.existsByNickName(nickName)) {
-            if (isAppleUser() || isGoogleUser()) {
-                do {
-                    nickName = NicknameGeneratorUtil.generate();
-                } while (memberRepository.existsByNickName(nickName));
-            } else {
-                throw new GeneralException(MemberErrorCode.DUPLICATE_NICKNAME);
-            }
-        }
-
-        return nickName;
+        return generateUniqueTaggedNickname(determineNickname(email));
     }
 
     /**
@@ -116,9 +105,9 @@ public class AuthService {
         String lowerEmail = email.toLowerCase();
 
         if (isGoogleUser()) {
-            return hasLocalPart
+            return sanitizeAutoNickname(hasLocalPart
                     ? email.substring(0, atIndex)
-                    : NicknameGeneratorUtil.generate();
+                    : NicknameGeneratorUtil.generate());
         }
 
         if (isAppleUser()) {
@@ -126,13 +115,13 @@ public class AuthService {
             if (isPrivateRelay) {
                 return NicknameGeneratorUtil.generate();
             }
-            return hasLocalPart
+            return sanitizeAutoNickname(hasLocalPart
                     ? email.substring(0, atIndex)
-                    : NicknameGeneratorUtil.generate();
+                    : NicknameGeneratorUtil.generate());
         }
 
         if (hasLocalPart) {
-            return getUserNameFromToken().orElse(email.substring(0, atIndex));
+            return sanitizeAutoNickname(getUserNameFromToken().orElse(email.substring(0, atIndex)));
         }
 
         return NicknameGeneratorUtil.generate();
@@ -140,7 +129,7 @@ public class AuthService {
 
     /**
      * 부분 갱신(PATCH) 형태의 회원 정보 업데이트.
-     * null 이 아닌 필드만 엔티티에 반영하며, 닉네임은 변경 시 중복 검증을 수행한다.
+     * null 이 아닌 필드만 엔티티에 반영하며, 닉네임은 변경 시 해시태그를 재생성한다.
      *
      * @param memberId   업데이트할 회원 식별자
      * @param requestDto 변경 요청 DTO (null 허용 필드는 선택 적용)
@@ -153,10 +142,12 @@ public class AuthService {
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
 
         Optional.ofNullable(requestDto.getNickName())
-                .filter(n -> !Objects.equals(n, member.getNickName()))
-                .ifPresent(n -> {
-                    validateDuplicateNickName(n);
-                    member.updateNickName(n);
+                .map(this::normalizeRequestedNickname)
+                .filter(Objects::nonNull)
+                .filter(nickName -> !Objects.equals(nickName, NicknameTagUtil.extractBaseNickname(member.getNickName())))
+                .ifPresent(baseNickName -> {
+                    String taggedNickName = generateUniqueTaggedNickname(baseNickName);
+                    member.updateNickName(taggedNickName);
                 });
 
         Optional.ofNullable(requestDto.getProfileImageUrl())
@@ -230,10 +221,12 @@ public class AuthService {
     }
 
     public CheckNicknameResponse validateDuplicateNickName(String nickName) {
-        boolean isExists = memberRepository.existsByNickName(nickName);
-        if (isExists) {
-            throw new GeneralException(MemberErrorCode.DUPLICATE_NICKNAME);
+        String requestedNickName = normalizeRequestedNickname(nickName);
+        if (requestedNickName == null) {
+            throw new GeneralException(MemberErrorCode.INVALID_NICKNAME);
         }
+
+        generateUniqueTaggedNickname(requestedNickName);
         return new CheckNicknameResponse(true);
     }
 
@@ -358,5 +351,35 @@ public class AuthService {
             log.error("[Auth] Failed to delete Cognito user: {}", userName, e);
             throw new GeneralException(MemberErrorCode.COGNITO_DELETE_FAILED);
         }
+    }
+
+    private String normalizeRequestedNickname(String nickName) {
+        String normalizedNickName = NicknameTagUtil.extractBaseNickname(nickName);
+        if (normalizedNickName == null) {
+            return null;
+        }
+
+        if (normalizedNickName.length() < MIN_NICKNAME_LENGTH || normalizedNickName.length() > MAX_NICKNAME_LENGTH) {
+            throw new GeneralException(MemberErrorCode.INVALID_NICKNAME);
+        }
+
+        return normalizedNickName;
+    }
+
+    private String sanitizeAutoNickname(String nickNameCandidate) {
+        String normalizedNickName = NicknameTagUtil.extractBaseNickname(nickNameCandidate);
+        if (normalizedNickName == null) {
+            return NicknameGeneratorUtil.generate();
+        }
+
+        if (normalizedNickName.length() < MIN_NICKNAME_LENGTH || normalizedNickName.length() > MAX_NICKNAME_LENGTH) {
+            return NicknameGeneratorUtil.generate();
+        }
+
+        return normalizedNickName;
+    }
+
+    private String generateUniqueTaggedNickname(String baseNickName) {
+        return NicknameTagUtil.generateUniqueTaggedNickname(baseNickName, memberRepository::existsByNickName);
     }
 }

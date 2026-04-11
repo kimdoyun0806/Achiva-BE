@@ -22,7 +22,7 @@ public class MemberDetailResponse {
     @Schema(description = "이메일", example = "user@example.com")
     private String email;
 
-    @Schema(description = "닉네임", example = "achiva_user")
+    @Schema(description = "닉네임", example = "achiva_user#1234")
     private String nickName;
 
     @Schema(description = "생년월일", example = "2000-01-01")

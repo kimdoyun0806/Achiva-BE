@@ -12,7 +12,7 @@ import java.util.Optional;
 @Schema(description = "랭킹 기능용 회원 정보 응답")
 public class MemberRankingResponse {
 
-    @Schema(description = "닉네임", example = "achiva_user")
+    @Schema(description = "닉네임", example = "achiva_user#1234")
     private String nickName;
 
     @Schema(description = "프로필 이미지 URL", example = "https://example.com/profile.png")

@@ -6,7 +6,7 @@ import org.hibernate.validator.constraints.URL;
 
 @Getter
 public class UpdateMemberRequest {
-    @Size(min = 2, max = 20)
+    @Size(min = 2, max = 30)
     private String nickName;
     @URL(protocol = "https")
     private String profileImageUrl;

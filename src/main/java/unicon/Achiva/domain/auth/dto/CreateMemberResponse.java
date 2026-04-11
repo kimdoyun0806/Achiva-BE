@@ -23,8 +23,8 @@ public class CreateMemberResponse {
     @Email
     @Schema(description = "이메일", example = "user@example.com")
     private String email;
-    @Size(min = 2, max = 20)
-    @Schema(description = "닉네임", example = "achiva_user")
+    @Size(min = 2, max = 255)
+    @Schema(description = "닉네임", example = "achiva_user#1234")
     private String nickName;
     @URL(protocol = "https")
     @Schema(description = "프로필 이미지 URL")
