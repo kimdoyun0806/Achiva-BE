@@ -12,6 +12,7 @@ import unicon.Achiva.domain.book.entity.BookArticle;
 import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.cheering.entity.Cheering;
 import unicon.Achiva.domain.member.entity.Member;
+import unicon.Achiva.domain.scripture.entity.ArticleScriptureReading;
 import unicon.Achiva.global.common.UuidBaseEntity;
 
 import java.util.ArrayList;
@@ -67,6 +68,9 @@ public class Article extends UuidBaseEntity {
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BookArticle> bookArticles = new ArrayList<>();
 
+    @OneToOne(mappedBy = "article", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private ArticleScriptureReading scriptureReading;
+
     // ---- 로직 ----
     public void update(ArticleRequest request) {
         this.photoUrls.clear();
@@ -87,5 +91,9 @@ public class Article extends UuidBaseEntity {
     public void changeCategoryAndSeq(Category newCategory, long newSeq) {
         this.category = newCategory;
         this.authorCategorySeq = newSeq;
+    }
+
+    public void setScriptureReading(ArticleScriptureReading scriptureReading) {
+        this.scriptureReading = scriptureReading;
     }
 }

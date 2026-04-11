@@ -118,6 +118,11 @@ public class ArticleService {
     }
 
     @Transactional
+    public void notifyArticleCreated(Article article) {
+        sendFriendWorkoutPushNotifications(article);
+    }
+
+    @Transactional
     public ArticleResponse updateArticle(ArticleRequest request, UUID articleId, UUID memberId) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new GeneralException(ArticleErrorCode.ARTICLE_NOT_FOUND));

@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.experimental.SuperBuilder;
 import unicon.Achiva.domain.article.entity.Article;
 import unicon.Achiva.domain.category.Category;
+import unicon.Achiva.domain.scripture.dto.ScriptureReadingPayload;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +27,7 @@ public class ArticleResponse {
     private LocalDateTime updatedAt;
     private Integer weeklyWorkoutCount;
     private Integer continuousGoalWeeks;
+    private ScriptureReadingPayload scriptureReading;
 
     protected static <B extends ArticleResponseBuilder<?, ?>> B initBuilder(B builder, Article article) {
         return (B) builder
@@ -46,6 +48,7 @@ public class ArticleResponse {
                 .backgroundColor(article.getBackgroundColor())
                 .weeklyWorkoutCount(article.getWeeklyWorkoutCount())
                 .continuousGoalWeeks(article.getContinuousGoalWeeks())
+                .scriptureReading(ScriptureReadingPayload.fromEntity(article.getScriptureReading()))
                 .createdAt(article.getCreatedAt())
                 .updatedAt(article.getUpdatedAt());
     }
