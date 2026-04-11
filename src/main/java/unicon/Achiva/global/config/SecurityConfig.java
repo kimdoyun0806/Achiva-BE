@@ -63,6 +63,7 @@ public class SecurityConfig {
                                 "/api/auth/send-verification-code",
                                 "/api/auth/verify-code"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/organizations", "/api/organizations/**").permitAll()
                         // 회원가입은 JWT 필요 (authenticated, but Member 존재 불필요)
                         .requestMatchers("/api/auth/register").authenticated()
                         // 회원가입 취소 (JWT 필요, Member 없어도 됨)

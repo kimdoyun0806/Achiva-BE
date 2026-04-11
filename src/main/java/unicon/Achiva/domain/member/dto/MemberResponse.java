@@ -4,13 +4,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import unicon.Achiva.domain.auth.Role;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.Gender;
 import unicon.Achiva.domain.member.entity.Member;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -23,7 +21,7 @@ public class MemberResponse {
     @Schema(description = "이메일", example = "user@example.com")
     private String email;
 
-    @Schema(description = "닉네임", example = "achiva_user")
+    @Schema(description = "닉네임", example = "achiva_user#1234")
     private String nickName;
 
     @Schema(description = "생년월일", example = "2000-01-01")
@@ -34,9 +32,6 @@ public class MemberResponse {
 
     @Schema(description = "지역", example = "서울")
     private String region;
-
-    @Schema(description = "관심 카테고리 목록")
-    private List<String> categories;
 
     @Schema(description = "프로필 이미지 URL", example = "https://example.com/profile.png")
     private String profileImageUrl;
@@ -50,6 +45,12 @@ public class MemberResponse {
     @Schema(description = "현재까지 작성한 게시글 수", example = "12")
     private long articleCount;
 
+    @Schema(description = "상위 모임 ID", example = "1")
+    private Long organizationId;
+
+    @Schema(description = "상위 모임 이름", example = "Achiva University")
+    private String organizationName;
+
     @Schema(description = "응답 생성 시각", example = "2026-03-28T12:34:56")
     private LocalDateTime createdAt;
 
@@ -62,16 +63,12 @@ public class MemberResponse {
                 .birth(member.getBirth())
                 .gender(member.getGender())
                 .region(member.getRegion())
-                .categories(
-                        member.getCategories()
-                                .stream()
-                                .map(Category::getDisplayName)
-                                .toList()
-                )
                 .profileImageUrl(member.getProfileImageUrl())
                 .description(member.getDescription())
                 .role(member.getRole())
                 .articleCount(articleCount)
+                .organizationId(member.getOrganization().getId())
+                .organizationName(member.getOrganization().getName())
                 .createdAt(LocalDateTime.now())
                 .build();
     }

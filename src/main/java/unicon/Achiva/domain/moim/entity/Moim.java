@@ -5,9 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
-import unicon.Achiva.domain.category.Category;
+import unicon.Achiva.domain.organization.entity.Organization;
 import unicon.Achiva.global.common.LongBaseEntity;
 
 import java.util.ArrayList;
@@ -19,6 +17,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Moim extends LongBaseEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -49,14 +51,6 @@ public class Moim extends LongBaseEntity {
     @Builder.Default
     @Column(nullable = false)
     private int score = 0;
-
-    @ElementCollection(targetClass = Category.class)
-    @Enumerated(EnumType.STRING)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @CollectionTable(name = "moim_categories", joinColumns = @JoinColumn(name = "moim_id"))
-    @Column(columnDefinition = "varchar(50)")
-    @Builder.Default
-    private List<Category> categories = new ArrayList<>();
 
     @Builder.Default
     @OneToMany(mappedBy = "moim", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -95,8 +89,7 @@ public class Moim extends LongBaseEntity {
                        String password,
                        Boolean isOfficial,
                        Integer targetAmount,
-                       Integer pokeDays,
-                       List<Category> categories) {
+                       Integer pokeDays) {
         if (name != null) {
             this.name = name;
         }
@@ -114,9 +107,6 @@ public class Moim extends LongBaseEntity {
         }
         if (pokeDays != null) {
             this.pokeDays = pokeDays;
-        }
-        if (categories != null) {
-            this.categories = new ArrayList<>(categories);
         }
 
         if (isPrivate != null) {

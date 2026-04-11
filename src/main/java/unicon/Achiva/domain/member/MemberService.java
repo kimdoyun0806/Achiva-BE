@@ -9,19 +9,26 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import unicon.Achiva.domain.article.ArticleService;
+import unicon.Achiva.domain.article.dto.TotalCharacterCountResponse;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
+import unicon.Achiva.domain.cheering.CheeringService;
+import unicon.Achiva.domain.cheering.dto.TotalReceivedCheeringScoreResponse;
+import unicon.Achiva.domain.cheering.dto.TotalSendingCheeringScoreResponse;
 import unicon.Achiva.domain.member.dto.ConfirmProfileImageUploadRequest;
+import unicon.Achiva.domain.member.dto.MemberDetailResponse;
 import unicon.Achiva.domain.member.dto.MemberRankingResponse;
 import unicon.Achiva.domain.member.dto.MemberResponse;
 import unicon.Achiva.domain.member.dto.MemberStatsResponse;
 import unicon.Achiva.domain.member.dto.SearchMemberCondition;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.global.response.GeneralException;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,9 +37,13 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class MemberService {
 
+    private static final LocalDateTime DETAIL_CHARACTER_COUNT_START_DATE = LocalDateTime.of(2025, 1, 1, 0, 0);
+
     private final MemberRepository memberRepository;
     private final ArticleRepository articleRepository;
     private final ArticleService articleService;
+    private final CheeringService cheeringService;
+    private final OrganizationAccessService organizationAccessService;
 
     public Boolean existsById(UUID memberId) {
         return memberRepository.existsById(memberId);
@@ -44,14 +55,44 @@ public class MemberService {
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
     }
 
+    public MemberResponse getMemberInfo(UUID requesterId, UUID targetMemberId) {
+        Member member = organizationAccessService.getAccessibleMember(requesterId, targetMemberId);
+        return MemberResponse.fromEntity(member, getArticleCount(member.getId()));
+    }
+
+    public MemberDetailResponse getMemberDetailInfo(UUID requesterId, UUID targetMemberId) {
+        Member member = organizationAccessService.getAccessibleMember(requesterId, targetMemberId);
+        return buildMemberDetailResponse(member);
+    }
+
     public MemberResponse getMemberInfoByNickname(String nickname) {
         return memberRepository.findByNickName(nickname)
                 .map(member -> MemberResponse.fromEntity(member, getArticleCount(member.getId())))
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
     }
 
-    public Page<MemberResponse> getMembers(SearchMemberCondition condition, Pageable pageable) {
-        Page<Member> members = memberRepository.findByNickNameContainingIgnoreCase(condition.getKeyword(), pageable);
+    public MemberResponse getMemberInfoByNickname(UUID requesterId, String nickname) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        Member member = memberRepository.findByNickNameAndOrganization_Id(nickname, organizationId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+        return MemberResponse.fromEntity(member, getArticleCount(member.getId()));
+    }
+
+    public MemberDetailResponse getMemberDetailInfoByNickname(UUID requesterId, String nickname) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        Member member = memberRepository.findByNickNameAndOrganization_Id(nickname, organizationId)
+                .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
+        return buildMemberDetailResponse(member);
+    }
+
+    public Page<MemberResponse> getMembers(UUID requesterId, SearchMemberCondition condition, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        String keyword = condition.getKeyword() == null ? "" : condition.getKeyword();
+        Page<Member> members = memberRepository.findByOrganization_IdAndNickNameContainingIgnoreCase(
+                organizationId,
+                keyword,
+                pageable
+        );
         Map<UUID, Long> articleCountMap = getArticleCountMap(
                 members.getContent().stream()
                         .map(Member::getId)
@@ -65,8 +106,9 @@ public class MemberService {
         return new PageImpl<>(content, pageable, members.getTotalElements());
     }
 
-    public List<MemberRankingResponse> getMembersForRanking() {
-        List<Member> members = memberRepository.findAll(Sort.by(Sort.Direction.ASC, "nickName"));
+    public List<MemberRankingResponse> getMembersForRanking(UUID requesterId) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        List<Member> members = memberRepository.findAllByOrganization_Id(organizationId, Sort.by(Sort.Direction.ASC, "nickName"));
         List<UUID> memberIds = members.stream()
                 .map(Member::getId)
                 .toList();
@@ -129,6 +171,28 @@ public class MemberService {
 
     private long getArticleCount(UUID memberId) {
         return articleRepository.countArticlesByDateRange(memberId, null, null);
+    }
+
+    private MemberDetailResponse buildMemberDetailResponse(Member member) {
+        UUID memberId = member.getId();
+        long articleCount = getArticleCount(memberId);
+        MemberStatsResponse memberStatsResponse = articleService.getMemberStats(memberId);
+        TotalCharacterCountResponse totalCharacterCountResponse = articleService.getTotalCharacterCountByDateRange(
+                memberId,
+                DETAIL_CHARACTER_COUNT_START_DATE,
+                null
+        );
+        TotalSendingCheeringScoreResponse totalSendingCheeringScoreResponse = cheeringService.getTotalGivenPoints(memberId);
+        TotalReceivedCheeringScoreResponse totalReceivedCheeringScoreResponse = cheeringService.getTotalReceivedPoints(memberId);
+
+        return MemberDetailResponse.from(
+                member,
+                articleCount,
+                memberStatsResponse,
+                totalCharacterCountResponse.totalCharacterCount(),
+                totalSendingCheeringScoreResponse.totalSendingCheeringScore(),
+                totalReceivedCheeringScoreResponse.totalReceivedCheeringScore()
+        );
     }
 
     private Map<UUID, Long> getArticleCountMap(List<UUID> memberIds) {

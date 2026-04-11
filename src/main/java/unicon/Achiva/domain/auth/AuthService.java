@@ -10,25 +10,22 @@ import unicon.Achiva.domain.auth.dto.*;
 import unicon.Achiva.domain.article.infrastructure.ArticleRepository;
 import unicon.Achiva.domain.auth.infrastructure.CognitoService;
 import unicon.Achiva.domain.auth.infrastructure.OIDCUserInfoService;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.Gender;
 import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.dto.MemberResponse;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
-import unicon.Achiva.domain.moim.entity.Moim;
-import unicon.Achiva.domain.moim.entity.MoimMember;
-import unicon.Achiva.domain.moim.entity.MoimRole;
-import unicon.Achiva.domain.moim.repository.MoimMemberRepository;
-import unicon.Achiva.domain.moim.repository.MoimRepository;
+import unicon.Achiva.domain.organization.OrganizationErrorCode;
+import unicon.Achiva.domain.organization.OrganizationService;
+import unicon.Achiva.domain.organization.entity.Organization;
 import unicon.Achiva.domain.push.infrastructure.LinkTokenRepository;
 import unicon.Achiva.domain.push.infrastructure.PushTokenRepository;
 import unicon.Achiva.global.response.GeneralException;
 import unicon.Achiva.global.utill.NicknameGeneratorUtil;
+import unicon.Achiva.global.utill.NicknameTagUtil;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,34 +36,31 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class AuthService {
 
+    private static final int MIN_NICKNAME_LENGTH = 2;
+    private static final int MAX_NICKNAME_LENGTH = 30;
+
     private final MemberRepository memberRepository;
     private final OIDCUserInfoService oidcUserInfoService;
     private final CognitoService cognitoService;
-    private final MoimRepository moimRepository;
-    private final MoimMemberRepository moimMemberRepository;
     private final PushTokenRepository pushTokenRepository;
     private final LinkTokenRepository linkTokenRepository;
     private final ArticleRepository articleRepository;
+    private final OrganizationService organizationService;
 
     @Transactional
     public CreateMemberResponse signup(MemberRequest requestDto) {
         String email = getEmailFromToken().orElse(oidcUserInfoService.getEmailFromUserInfo().orElseThrow(() -> new GeneralException(MemberErrorCode.INVALID_TOKEN)));
-        String nickName = determineNickname(email);
+        String nickName = resolveSignupNickname(requestDto, email);
         boolean emailExists = memberRepository.existsByEmail(email);
-        boolean nickNameExists = memberRepository.existsByNickName(nickName);
 
         if (emailExists) {
             throw new GeneralException(MemberErrorCode.DUPLICATE_EMAIL);
         }
-        if (nickNameExists) {
-            if (isAppleUser() || isGoogleUser()) {
-                do {
-                    nickName = NicknameGeneratorUtil.generate();
-                } while (memberRepository.existsByNickName(nickName));
-            } else {
-                throw new GeneralException(MemberErrorCode.DUPLICATE_NICKNAME);
-            }
-        }
+
+        Organization organization = organizationService.getSignupOrganization(
+                requestDto.getOrganizationId(),
+                requestDto.getOrganizationPassword()
+        );
 
         Member member = Member.builder()
                 .id(getMemberIdFromToken())
@@ -76,27 +70,23 @@ public class AuthService {
                 .birth(requestDto.getBirth())
                 .gender(requestDto.getGender() != null ? requestDto.getGender() : null)
                 .region(requestDto.getRegion() != null ? requestDto.getRegion() : null)
-                .categories(requestDto.getCategories())
                 .role(Role.USER)
+                .organization(organization)
                 .build();
 
         Member savedMember = memberRepository.save(member);
 
-        autoJoinOfficialMoims(savedMember);
-
         return CreateMemberResponse.fromEntity(savedMember);
     }
 
-    private void autoJoinOfficialMoims(Member member) {
-        List<Moim> officialMoims = moimRepository.findByIsOfficialTrue();
-        for (Moim moim : officialMoims) {
-            MoimMember moimMember = MoimMember.builder()
-                    .member(member)
-                    .moim(moim)
-                    .role(MoimRole.MEMBER)
-                    .build();
-            moimMemberRepository.save(moimMember);
+    private String resolveSignupNickname(MemberRequest requestDto, String email) {
+        String requestedNickName = normalizeRequestedNickname(requestDto.getNickName());
+
+        if (requestedNickName != null) {
+            return generateUniqueTaggedNickname(requestedNickName);
         }
+
+        return generateUniqueTaggedNickname(determineNickname(email));
     }
 
     /**
@@ -115,9 +105,9 @@ public class AuthService {
         String lowerEmail = email.toLowerCase();
 
         if (isGoogleUser()) {
-            return hasLocalPart
+            return sanitizeAutoNickname(hasLocalPart
                     ? email.substring(0, atIndex)
-                    : NicknameGeneratorUtil.generate();
+                    : NicknameGeneratorUtil.generate());
         }
 
         if (isAppleUser()) {
@@ -125,13 +115,13 @@ public class AuthService {
             if (isPrivateRelay) {
                 return NicknameGeneratorUtil.generate();
             }
-            return hasLocalPart
+            return sanitizeAutoNickname(hasLocalPart
                     ? email.substring(0, atIndex)
-                    : NicknameGeneratorUtil.generate();
+                    : NicknameGeneratorUtil.generate());
         }
 
         if (hasLocalPart) {
-            return getUserNameFromToken().orElse(email.substring(0, atIndex));
+            return sanitizeAutoNickname(getUserNameFromToken().orElse(email.substring(0, atIndex)));
         }
 
         return NicknameGeneratorUtil.generate();
@@ -139,7 +129,7 @@ public class AuthService {
 
     /**
      * 부분 갱신(PATCH) 형태의 회원 정보 업데이트.
-     * null 이 아닌 필드만 엔티티에 반영하며, 닉네임은 변경 시 중복 검증을 수행한다.
+     * null 이 아닌 필드만 엔티티에 반영하며, 닉네임은 변경 시 해시태그를 재생성한다.
      *
      * @param memberId   업데이트할 회원 식별자
      * @param requestDto 변경 요청 DTO (null 허용 필드는 선택 적용)
@@ -152,10 +142,12 @@ public class AuthService {
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
 
         Optional.ofNullable(requestDto.getNickName())
-                .filter(n -> !Objects.equals(n, member.getNickName()))
-                .ifPresent(n -> {
-                    validateDuplicateNickName(n);
-                    member.updateNickName(n);
+                .map(this::normalizeRequestedNickname)
+                .filter(Objects::nonNull)
+                .filter(nickName -> !Objects.equals(nickName, NicknameTagUtil.extractBaseNickname(member.getNickName())))
+                .ifPresent(baseNickName -> {
+                    String taggedNickName = generateUniqueTaggedNickname(baseNickName);
+                    member.updateNickName(taggedNickName);
                 });
 
         Optional.ofNullable(requestDto.getProfileImageUrl())
@@ -171,12 +163,6 @@ public class AuthService {
 
         Optional.ofNullable(requestDto.getRegion())
                 .ifPresent(member::updateRegion);
-
-        Optional.ofNullable(requestDto.getCategories())
-                .map(list -> list.stream()
-                        .map(Category::fromDisplayName)
-                        .toList())
-                .ifPresent(member::updateCategories);
 
         Optional.ofNullable(requestDto.getDescription())
                 .ifPresent(member::updateDescription);
@@ -198,7 +184,6 @@ public class AuthService {
         member.updateNickName("탈퇴한사용자_" + anonymizedIdPrefix);
         member.updateProfileImageUrl("https://achivadata.s3.ap-northeast-2.amazonaws.com/default-withdrawn.png");
         member.updateDescription(null);
-        member.updateCategories(new ArrayList<>());
         member.updateBirth(null);
         member.updateGender(null);
         member.updateRegion(null);
@@ -236,10 +221,12 @@ public class AuthService {
     }
 
     public CheckNicknameResponse validateDuplicateNickName(String nickName) {
-        boolean isExists = memberRepository.existsByNickName(nickName);
-        if (isExists) {
-            throw new GeneralException(MemberErrorCode.DUPLICATE_NICKNAME);
+        String requestedNickName = normalizeRequestedNickname(nickName);
+        if (requestedNickName == null) {
+            throw new GeneralException(MemberErrorCode.INVALID_NICKNAME);
         }
+
+        generateUniqueTaggedNickname(requestedNickName);
         return new CheckNicknameResponse(true);
     }
 
@@ -333,44 +320,7 @@ public class AuthService {
      */
     @Transactional
     public Member autoSignupSocialUser() {
-        UUID memberId = getMemberIdFromToken();
-
-        // 이미 Member가 존재하면 반환
-        if (memberRepository.existsById(memberId)) {
-            return memberRepository.findById(memberId)
-                    .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND));
-        }
-
-        // 소셜 로그인 사용자가 아니면 예외
-        if (!isGoogleUser() && !isAppleUser()) {
-            throw new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND);
-        }
-
-        // 이메일 가져오기
-        String email = getEmailFromToken()
-                .orElse(oidcUserInfoService.getEmailFromUserInfo()
-                        .orElseThrow(() -> new GeneralException(MemberErrorCode.INVALID_TOKEN)));
-
-        // 닉네임 자동 생성
-        String nickName = determineNickname(email);
-
-        // 닉네임 중복 시 랜덤 생성
-        while (memberRepository.existsByNickName(nickName)) {
-            nickName = NicknameGeneratorUtil.generate();
-        }
-
-        // Member 생성
-        Member member = Member.builder()
-                .id(memberId)
-                .email(email)
-                .nickName(nickName)
-                .profileImageUrl("https://achivadata.s3.ap-northeast-2.amazonaws.com/default-profile-image.png")
-                .role(Role.USER)
-                .build();
-
-        Member savedMember = memberRepository.save(member);
-        autoJoinOfficialMoims(savedMember);
-        return savedMember;
+        throw new GeneralException(OrganizationErrorCode.ORGANIZATION_REQUIRED);
     }
 
     /**
@@ -401,5 +351,35 @@ public class AuthService {
             log.error("[Auth] Failed to delete Cognito user: {}", userName, e);
             throw new GeneralException(MemberErrorCode.COGNITO_DELETE_FAILED);
         }
+    }
+
+    private String normalizeRequestedNickname(String nickName) {
+        String normalizedNickName = NicknameTagUtil.extractBaseNickname(nickName);
+        if (normalizedNickName == null) {
+            return null;
+        }
+
+        if (normalizedNickName.length() < MIN_NICKNAME_LENGTH || normalizedNickName.length() > MAX_NICKNAME_LENGTH) {
+            throw new GeneralException(MemberErrorCode.INVALID_NICKNAME);
+        }
+
+        return normalizedNickName;
+    }
+
+    private String sanitizeAutoNickname(String nickNameCandidate) {
+        String normalizedNickName = NicknameTagUtil.extractBaseNickname(nickNameCandidate);
+        if (normalizedNickName == null) {
+            return NicknameGeneratorUtil.generate();
+        }
+
+        if (normalizedNickName.length() < MIN_NICKNAME_LENGTH || normalizedNickName.length() > MAX_NICKNAME_LENGTH) {
+            return NicknameGeneratorUtil.generate();
+        }
+
+        return normalizedNickName;
+    }
+
+    private String generateUniqueTaggedNickname(String baseNickName) {
+        return NicknameTagUtil.generateUniqueTaggedNickname(baseNickName, memberRepository::existsByNickName);
     }
 }

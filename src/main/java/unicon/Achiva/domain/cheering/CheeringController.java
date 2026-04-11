@@ -59,16 +59,17 @@ public class CheeringController {
         return ResponseEntity.ok(ApiResponseForm.success(null, "응원 삭제 성공"));
     }
 
-    @Operation(summary = "특정 응원 조회")
+    @Operation(summary = "특정 응원 조회", description = "다른 organization의 응원 데이터는 조회할 수 없습니다.")
     @GetMapping("api/articles/{articleId}/cheerings/{cheeringId}")
     public ResponseEntity<ApiResponseForm<CheeringResponse>> getCheering(
             @RequestParam Long cheeringId
     ) {
-        CheeringResponse response = cheeringService.getCheering(cheeringId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        CheeringResponse response = cheeringService.getCheering(requesterId, cheeringId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "응원 조회 성공"));
     }
 
-    @Operation(summary = "특정 게시글의 응원 목록 조회")
+    @Operation(summary = "특정 게시글의 응원 목록 조회", description = "같은 organization 안의 게시글에 대해서만 응원 목록을 조회할 수 있습니다.")
     @Parameter(
             name = "sort",
             description = "정렬 기준 (예: createdAt,desc 또는 sender.nickName,asc)",
@@ -80,7 +81,8 @@ public class CheeringController {
             @PathVariable UUID articleId,
             @ParameterObject Pageable pageable
     ) {
-        Page<CheeringResponse> responses = cheeringService.getCheeringsByArticleId(articleId, pageable);
+        UUID requesterId = authService.getMemberIdFromToken();
+        Page<CheeringResponse> responses = cheeringService.getCheeringsByArticleId(requesterId, articleId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(responses, "응원 목록 조회 성공"));
     }
 
@@ -98,7 +100,7 @@ public class CheeringController {
             @ParameterObject Pageable pageable
     ) {
         UUID memberId = authService.getMemberIdFromToken();
-        Page<CheeringResponse> responses = cheeringService.getCheeringsByMemberId(memberId, pageable);
+        Page<CheeringResponse> responses = cheeringService.getCheeringsByMemberId(memberId, memberId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(responses, "내가 받은 응원 목록 조회 성공"));
     }
 
@@ -115,7 +117,7 @@ public class CheeringController {
     @Operation(
             summary = "특정 기간 동안 특정 유저가 보낸 총 응원 점수 조회",
             description = "기간을 지정하여 특정 유저가 보낸 응원의 총 점수를 조회합니다. " +
-                    "기간을 지정하지 않으면 전체 기간의 점수를 조회합니다. " +
+                    "기간을 지정하지 않으면 전체 기간의 점수를 조회합니다. 같은 organization 유저에 대해서만 조회 가능합니다. " +
                     "올해 기록만 조회하려면 startDate에 올해 1월 1일 00:00:00을 설정하세요."
     )
     @GetMapping("/api/members/{memberId}/cheerings/total-sending-score")
@@ -130,7 +132,8 @@ public class CheeringController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime endDate
     ) {
-        TotalSendingCheeringScoreResponse response = cheeringService.getTotalGivenPointsByDateRange(memberId, startDate, endDate);
+        UUID requesterId = authService.getMemberIdFromToken();
+        TotalSendingCheeringScoreResponse response = cheeringService.getTotalGivenPointsByDateRange(requesterId, memberId, startDate, endDate);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 특정 유저가 보낸 총 응원 점수 조회 성공"));
     }
 
@@ -139,7 +142,8 @@ public class CheeringController {
     public ResponseEntity<ApiResponseForm<TotalReceivedCheeringScoreResponse>> getTotalReceivingCheeringScore(
             @PathVariable UUID memberId
     ) {
-        TotalReceivedCheeringScoreResponse response = cheeringService.getTotalReceivedPoints(memberId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        TotalReceivedCheeringScoreResponse response = cheeringService.getTotalReceivedPoints(requesterId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저 받은 총 응원 점수 조회 성공"));
     }
 
@@ -148,7 +152,8 @@ public class CheeringController {
     public ResponseEntity<ApiResponseForm<List<CategoryStatDto>>> getGivenStats(
             @PathVariable UUID memberId
     ) {
-        List<CategoryStatDto> response = cheeringService.getGivenStats(memberId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        List<CategoryStatDto> response = cheeringService.getGivenStats(requesterId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저의 보낸 응원의 모든 카테고리별 점수 조회 성공"));
     }
 
@@ -157,7 +162,8 @@ public class CheeringController {
     public ResponseEntity<ApiResponseForm<List<CategoryStatDto>>> getReceivedStats(
             @PathVariable UUID memberId
     ) {
-        List<CategoryStatDto> response = cheeringService.getReceivedStats(memberId);
+        UUID requesterId = authService.getMemberIdFromToken();
+        List<CategoryStatDto> response = cheeringService.getReceivedStats(requesterId, memberId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저의 받은 응원의 모든 카테고리별 점수 조회 성공"));
     }
 

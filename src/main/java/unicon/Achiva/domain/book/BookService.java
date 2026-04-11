@@ -17,6 +17,7 @@ import unicon.Achiva.domain.book.infrastructure.BookRepository;
 import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.global.response.GeneralException;
 
 import java.util.HashSet;
@@ -35,6 +36,7 @@ public class BookService {
     private final MemberRepository memberRepository;
 
     private final ArticleService articleService;
+    private final OrganizationAccessService organizationAccessService;
 
     @Transactional(readOnly = true)
     protected Member getCurrentMember(UUID memberId) {
@@ -59,7 +61,9 @@ public class BookService {
                 .build();
 
         if (request.getArticleIds() != null && !request.getArticleIds().isEmpty()) {
-            List<Article> articles = articleRepository.findAllById(request.getArticleIds());
+            List<Article> articles = request.getArticleIds().stream()
+                    .map(articleId -> organizationAccessService.getAccessibleArticle(memberId, articleId))
+                    .toList();
             int idx = 0;
             for (Article article : articles) {
                 book.addArticle(article, idx++);
@@ -76,8 +80,9 @@ public class BookService {
      * 책 단건 조회
      */
     @Transactional(readOnly = true)
-    public BookResponse getBook(UUID bookId) {
-        Book book = bookRepository.findById(bookId)
+    public BookResponse getBook(UUID requesterId, UUID bookId) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        Book book = bookRepository.findByIdAndMember_Organization_Id(bookId, organizationId)
                 .orElseThrow(() -> new GeneralException(BookErrorCode.BOOK_NOT_FOUND));
         return BookResponse.fromEntity(book);
     }
@@ -86,8 +91,9 @@ public class BookService {
      * 모든 책 조회 (페이징)
      */
     @Transactional(readOnly = true)
-    public Page<BookResponse> getAllBooks(Pageable pageable) {
-        return bookRepository.findAll(pageable)
+    public Page<BookResponse> getAllBooks(UUID requesterId, Pageable pageable) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        return bookRepository.findAllByMember_Organization_Id(organizationId, pageable)
                 .map(BookResponse::fromEntity);
     }
 
@@ -112,7 +118,9 @@ public class BookService {
             bookRepository.flush();
 
             // [Step C] 새 아티클 목록 조회
-            List<Article> articles = articleRepository.findAllById(newArticleIds);
+            List<Article> articles = newArticleIds.stream()
+                    .map(articleId -> organizationAccessService.getAccessibleArticle(memberId, articleId))
+                    .toList();
 
             if (articles.size() != new HashSet<>(newArticleIds).size()) {
                 throw new GeneralException(ArticleErrorCode.ARTICLE_NOT_FOUND);
@@ -146,8 +154,7 @@ public class BookService {
     public BookResponse addArticleToBook(UUID bookId, UUID articleId, UUID memberId) {
         Book book = bookRepository.findByIdAndMemberId(bookId, memberId)
                 .orElseThrow(() -> new GeneralException(BookErrorCode.UNAUTHORIZED_BOOK_ACCESS));
-        Article article = articleRepository.findById(articleId)
-                .orElseThrow(() -> new GeneralException(ArticleErrorCode.ARTICLE_NOT_FOUND));
+        Article article = organizationAccessService.getAccessibleArticle(memberId, articleId);
 
         int index = book.getBookArticles().size();
         book.addArticle(article, index);
@@ -184,8 +191,10 @@ public class BookService {
      * 특정 사용자가 만든 책 목록 조회 (페이징)
      */
     @Transactional(readOnly = true)
-    public Page<BookResponse> getBooksByMember(UUID memberId, Pageable pageable) {
-        return bookRepository.findAllByMemberId(memberId, pageable)
+    public Page<BookResponse> getBooksByMember(UUID requesterId, UUID targetMemberId, Pageable pageable) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        return bookRepository.findAllByMemberIdAndMember_Organization_Id(memberId, organizationId, pageable)
                 .map(BookResponse::fromEntity);
     }
 }

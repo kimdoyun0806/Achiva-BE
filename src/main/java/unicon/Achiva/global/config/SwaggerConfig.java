@@ -37,7 +37,7 @@ public class SwaggerConfig {
     private Info apiInfo() {
         return new Info()
                 .title("Achiva")
-                .description("Achiva API 명세서, 명세서 페이지 로그아웃은 {baseurl}/logout 입력(테스트 환경과 별도임)")
+                .description("Achiva API 명세서. Organization 목록 조회를 제외한 모든 조회/수정은 로그인한 사용자의 organization 범위 내에서만 동작합니다. 명세서 페이지 로그아웃은 {baseurl}/logout 입력(테스트 환경과 별도임)")
                 .version("1.0.0");
     }
 }

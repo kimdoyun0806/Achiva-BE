@@ -5,13 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.validator.constraints.URL;
 import unicon.Achiva.domain.article.entity.Article;
 import unicon.Achiva.domain.auth.Role;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.member.Gender;
+import unicon.Achiva.domain.organization.entity.Organization;
 import unicon.Achiva.global.common.BaseEntity;
 
 import java.time.LocalDate;
@@ -49,15 +47,13 @@ public class Member extends BaseEntity {
     @Column(length = 500)
     private String description;
 
-    @ElementCollection(targetClass = Category.class)
-    @Enumerated(EnumType.STRING)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @Column(columnDefinition = "varchar(50)")
-    private List<Category> categories;
-
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "varchar(20)")
     private Role role;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Builder.Default
     @OneToMany(mappedBy = "member", cascade = CascadeType.REMOVE, orphanRemoval = true)
@@ -95,14 +91,6 @@ public class Member extends BaseEntity {
 
     public void updateRegion(String region) {
         this.region = region;
-    }
-
-    public void updateCategories(List<Category> list) {
-        if (this.categories == null) {
-            this.categories = new ArrayList<>();
-        }
-        this.categories.clear();
-        this.categories.addAll(list);
     }
 
     public void updateDescription(String description) {

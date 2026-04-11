@@ -2,12 +2,8 @@ package unicon.Achiva.domain.moim.dto;
 
 import lombok.Builder;
 import lombok.Getter;
-import unicon.Achiva.domain.category.Category;
 import unicon.Achiva.domain.moim.entity.Moim;
-import unicon.Achiva.domain.moim.entity.MoimMember;
 import unicon.Achiva.domain.moim.entity.MoimRole;
-
-import java.util.List;
 
 @Getter
 @Builder
@@ -15,7 +11,6 @@ public class MoimResponse {
     private Long id;
     private String name;
     private String description;
-    private List<Category> categories;
     private String leaderName;
     private int memberCount;
     private int maxMember;
@@ -36,7 +31,6 @@ public class MoimResponse {
                 .id(moim.getId())
                 .name(moim.getName())
                 .description(moim.getDescription())
-                .categories(moim.getCategories())
                 .leaderName(leader)
                 .memberCount(moim.getMemberCount())
                 .maxMember(moim.getMaxMember())

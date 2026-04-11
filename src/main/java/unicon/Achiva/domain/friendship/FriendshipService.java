@@ -11,6 +11,7 @@ import unicon.Achiva.domain.friendship.infrastructure.FriendshipRepository;
 import unicon.Achiva.domain.member.MemberErrorCode;
 import unicon.Achiva.domain.member.entity.Member;
 import unicon.Achiva.domain.member.infrastructure.MemberRepository;
+import unicon.Achiva.domain.organization.OrganizationAccessService;
 import unicon.Achiva.domain.push.PushService;
 import unicon.Achiva.domain.push.dto.PushSendRequest;
 import unicon.Achiva.global.response.GeneralException;
@@ -38,6 +39,7 @@ public class FriendshipService {
     private final FriendshipRepository friendshipRepository;
     private final MemberRepository memberRepository;
     private final PushService pushService;
+    private final OrganizationAccessService organizationAccessService;
 
     @Transactional
     public FriendshipResponse sendFriendRequest(FriendshipRequest friendshipRequest, UUID fromMemberId) {
@@ -45,6 +47,8 @@ public class FriendshipService {
         if (fromMemberId.equals(receiverId)) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_SELF_REQUEST);
         }
+
+        organizationAccessService.validateSameOrganization(fromMemberId, receiverId);
 
         Map<UUID, Member> members = lockMembers(fromMemberId, receiverId);
         Member requester = members.get(fromMemberId);
@@ -114,6 +118,7 @@ public class FriendshipService {
     public FriendshipResponse acceptFriendRequest(Long friendshipId, UUID memberId) {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
+        validateFriendshipAccessible(memberId, friendship);
 
         if (friendship.getStatus() == FriendshipStatus.ACCEPTED) {
             return FriendshipResponse.fromEntity(friendship);
@@ -145,6 +150,7 @@ public class FriendshipService {
     public FriendshipResponse rejectFriendRequest(Long friendshipId, UUID memberId) {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
+        validateFriendshipAccessible(memberId, friendship);
 
         if (friendship.getStatus() == FriendshipStatus.REJECTED) {
             return FriendshipResponse.fromEntity(friendship);
@@ -172,6 +178,7 @@ public class FriendshipService {
     public List<FriendshipResponse> getFriendRequests(UUID memberId) {
         return friendshipRepository.findByReceiverIdAndStatus(memberId, FriendshipStatus.PENDING)
                 .stream()
+                .filter(friendship -> isFriendshipAccessible(memberId, friendship))
                 .map(FriendshipResponse::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -179,26 +186,31 @@ public class FriendshipService {
     public List<FriendshipResponse> getSentFriendRequests(UUID memberId) {
         return friendshipRepository.findByRequesterIdAndStatus(memberId, FriendshipStatus.PENDING)
                 .stream()
+                .filter(friendship -> isFriendshipAccessible(memberId, friendship))
                 .map(FriendshipResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 
-    public List<FriendshipResponse> getFriends(UUID memberId) {
+    public List<FriendshipResponse> getFriends(UUID requesterId, UUID targetMemberId) {
+        UUID memberId = organizationAccessService.getAccessibleMember(requesterId, targetMemberId).getId();
         return friendshipRepository.findByRequesterIdOrReceiverId(memberId, memberId)
                 .stream()
                 .filter(friendship -> friendship.getStatus() == FriendshipStatus.ACCEPTED)
+                .filter(friendship -> isFriendshipAccessible(requesterId, friendship))
                 .map(FriendshipResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 
-    public List<FriendshipResponse> getFriendsByNickname(String nickname) {
-        UUID memberId = memberRepository.findByNickName(nickname)
+    public List<FriendshipResponse> getFriendsByNickname(UUID requesterId, String nickname) {
+        Long organizationId = organizationAccessService.getOrganizationId(requesterId);
+        UUID memberId = memberRepository.findByNickNameAndOrganization_Id(nickname, organizationId)
                 .orElseThrow(() -> new GeneralException(MemberErrorCode.MEMBER_NOT_FOUND))
                 .getId();
 
         return friendshipRepository.findByRequesterIdOrReceiverId(memberId, memberId)
                 .stream()
                 .filter(friendship -> friendship.getStatus() == FriendshipStatus.ACCEPTED)
+                .filter(friendship -> isFriendshipAccessible(requesterId, friendship))
                 .map(FriendshipResponse::fromEntity)
                 .collect(Collectors.toList());
     }
@@ -207,6 +219,7 @@ public class FriendshipService {
     public void blockFriendship(Long friendshipId, UUID memberId) {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
+        validateFriendshipAccessible(memberId, friendship);
 
         if (friendship.getStatus() != FriendshipStatus.ACCEPTED) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FRIENDS);
@@ -223,6 +236,7 @@ public class FriendshipService {
     public void cancelFriendRequest(Long friendshipId, UUID memberId) {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
+        validateFriendshipAccessible(memberId, friendship);
 
         if (friendship.getStatus() != FriendshipStatus.PENDING) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_ALREADY_PROCESSED);
@@ -239,6 +253,7 @@ public class FriendshipService {
     public void updatePostPushSetting(Long friendshipId, UUID memberId, boolean allowsPostPush) {
         Friendship friendship = friendshipRepository.findById(friendshipId)
                 .orElseThrow(() -> new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND));
+        validateFriendshipAccessible(memberId, friendship);
 
         if (friendship.getStatus() != FriendshipStatus.ACCEPTED) {
             throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FRIENDS);
@@ -358,5 +373,18 @@ public class FriendshipService {
             case PENDING -> 2;
             case REJECTED -> 1;
         };
+    }
+
+    private boolean isFriendshipAccessible(UUID requesterId, Friendship friendship) {
+        UUID otherMemberId = friendship.getRequester().getId().equals(requesterId)
+                ? friendship.getReceiver().getId()
+                : friendship.getRequester().getId();
+        return organizationAccessService.isSameOrganization(requesterId, otherMemberId);
+    }
+
+    private void validateFriendshipAccessible(UUID requesterId, Friendship friendship) {
+        if (!isFriendshipAccessible(requesterId, friendship)) {
+            throw new GeneralException(FriendshipErrorCode.FRIENDSHIP_NOT_FOUND);
+        }
     }
 }

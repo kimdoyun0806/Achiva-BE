@@ -70,6 +70,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
               LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE (a.member.id IN :friendIds
                  OR a.member.id IN :cheererIds)
+               AND a.member.organization.id = :organizationId
                AND b.id IS NULL
              ORDER BY
                  CASE WHEN a.member.id IN :friendIds THEN 0 ELSE 1 END,
@@ -81,11 +82,13 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                       LEFT JOIN Book b ON a.id = b.mainArticle.id
                      WHERE (a.member.id IN :friendIds
                          OR a.member.id IN :cheererIds)
+                       AND a.member.organization.id = :organizationId
                        AND b.id IS NULL
                     """)
     Page<Article> findCombinedFeed(
             @Param("friendIds") Collection<UUID> friendIds,
             @Param("cheererIds") Collection<UUID> cheererIds,
+            @Param("organizationId") Long organizationId,
             @ParameterObject Pageable pageable
     );
 
@@ -100,8 +103,6 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
     int shiftLeft(@Param("memberId") UUID memberId,
                   @Param("category") Category category,
                   @Param("fromSeq") long fromSeq);
-
-    Page<Article> searchByCondition(SearchArticleCondition condition, Pageable pageable);
 
     @EntityGraph(attributePaths = "member")
     @Query(value = """
@@ -128,25 +129,6 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
             SELECT a
               FROM Article a
               LEFT JOIN Book b ON a.id = b.mainArticle.id
-             WHERE a.category IN :categories
-               AND a.isDeleted = false
-               AND b.id IS NULL
-            """,
-            countQuery = """
-                    SELECT COUNT(a)
-                      FROM Article a
-                      LEFT JOIN Book b ON a.id = b.mainArticle.id
-                     WHERE a.category IN :categories
-                       AND a.isDeleted = false
-                       AND b.id IS NULL
-                    """)
-    Page<Article> findByCategoryIn(@Param("categories") List<Category> categories, Pageable pageable);
-
-    @EntityGraph(attributePaths = "member")
-    @Query(value = """
-            SELECT a
-              FROM Article a
-              LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.member.id = :memberId
                AND a.category = :category
                AND a.isDeleted = false
@@ -164,6 +146,30 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                     """)
     Page<Article> findByMemberIdWithCategory(@Param("memberId") UUID memberId, @Param("category") Category category, Pageable pageable);
 
+    @EntityGraph(attributePaths = "member")
+    @Query(value = """
+            SELECT a
+              FROM Article a
+              LEFT JOIN Book b ON a.id = b.mainArticle.id
+             WHERE a.category = :category
+               AND a.member.organization.id = :organizationId
+               AND a.isDeleted = false
+               AND b.id IS NULL
+             ORDER BY a.createdAt DESC
+            """,
+            countQuery = """
+                    SELECT COUNT(a)
+                      FROM Article a
+                      LEFT JOIN Book b ON a.id = b.mainArticle.id
+                     WHERE a.category = :category
+                       AND a.member.organization.id = :organizationId
+                       AND a.isDeleted = false
+                       AND b.id IS NULL
+                    """)
+    Page<Article> findAllByCategory(@Param("category") Category category,
+                                    @Param("organizationId") Long organizationId,
+                                    Pageable pageable);
+
     /**
      * 전체 게시글을 최신순으로 조회합니다.
      */
@@ -173,6 +179,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
               FROM Article a
               LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.isDeleted = false
+               AND a.member.organization.id = :organizationId
                AND b.id IS NULL
             """,
             countQuery = """
@@ -180,9 +187,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                       FROM Article a
                       LEFT JOIN Book b ON a.id = b.mainArticle.id
                      WHERE a.isDeleted = false
+                       AND a.member.organization.id = :organizationId
                        AND b.id IS NULL
                     """)
-    Page<Article> findAllByIsDeletedFalse(Pageable pageable);
+    Page<Article> findAllByIsDeletedFalse(@Param("organizationId") Long organizationId, Pageable pageable);
 
     /**
      * 응원 관계가 있는 사용자들이 작성한 게시글을 조회합니다.
@@ -198,6 +206,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
               INNER JOIN Cheering c ON (c.sender.id = :memberId AND c.receiver.id = a.member.id AND c.isDeleted = false)
                                     OR (c.receiver.id = :memberId AND c.sender.id = a.member.id AND c.isDeleted = false)
              WHERE a.member.id <> :memberId
+               AND a.member.organization.id = :organizationId
                AND a.isDeleted = false
                AND b.id IS NULL
              ORDER BY a.createdAt DESC
@@ -209,11 +218,13 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                       INNER JOIN Cheering c ON (c.sender.id = :memberId AND c.receiver.id = a.member.id AND c.isDeleted = false)
                                             OR (c.receiver.id = :memberId AND c.sender.id = a.member.id AND c.isDeleted = false)
                      WHERE a.member.id <> :memberId
+                       AND a.member.organization.id = :organizationId
                        AND a.isDeleted = false
                        AND b.id IS NULL
                     """)
     Page<Article> findByCheeringRelatedMembers(
             @Param("memberId") UUID memberId,
+            @Param("organizationId") Long organizationId,
             Pageable pageable
     );
 
@@ -279,7 +290,7 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                                                           @Param("endDate") java.time.LocalDateTime endDate);
 
     /**
-     * \ubaa8\uc784 \ud53c\ub4dc\uc6a9: \ud2b9\uc815 \uba64\ubc84 UUID \ubaa9\ub85d\uc758 \uc774\ubc88 \ub2ec \uac8c\uc2dc\ubb3c\uc744 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uc870\ud68c
+     * 모임 피드용: 특정 멤버 UUID 목록의 게시물을 최신순으로 조회
      */
     @EntityGraph(attributePaths = {"member", "questions"})
     @Query(value = """
@@ -289,7 +300,6 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
              WHERE a.member.id IN :memberIds
                AND a.isDeleted = false
                AND b.id IS NULL
-               AND a.createdAt >= :startDate
              ORDER BY a.createdAt DESC
             """,
             countQuery = """
@@ -299,11 +309,9 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
                      WHERE a.member.id IN :memberIds
                        AND a.isDeleted = false
                        AND b.id IS NULL
-                       AND a.createdAt >= :startDate
                     """)
-    Page<Article> findByMemberIdsAndCreatedAtAfter(
+    Page<Article> findByMemberIds(
             @Param("memberIds") Collection<UUID> memberIds,
-            @Param("startDate") java.time.LocalDateTime startDate,
             Pageable pageable
     );
 
@@ -368,9 +376,10 @@ public interface ArticleRepository extends JpaRepository<Article, UUID>, Article
               JOIN a.member m
               LEFT JOIN Book b ON a.id = b.mainArticle.id
              WHERE a.isDeleted = false
+               AND m.organization.id = :organizationId
                AND b.id IS NULL
              GROUP BY a.category, m.id, m.nickName, m.profileImageUrl
              ORDER BY a.category ASC, COUNT(a) DESC, m.nickName ASC
             """)
-    List<Object[]> countArticlesByCategoryAndMember();
+    List<Object[]> countArticlesByCategoryAndMember(@Param("organizationId") Long organizationId);
 }

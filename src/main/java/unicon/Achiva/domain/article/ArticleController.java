@@ -66,22 +66,24 @@ public class ArticleController {
         return ResponseEntity.ok(ApiResponseForm.success(null, "게시글 삭제 성공"));
     }
 
-    @Operation(summary = "게시글 검색")
+    @Operation(summary = "게시글 검색", description = "로그인한 사용자의 organization 범위 안에서만 게시글을 검색합니다.")
     @GetMapping("/api/articles")
     public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> searchArticles(
             SearchArticleCondition condition,
             @ParameterObject Pageable pageable
     ) {
-        Page<ArticleWithBookResponse> response = articleService.getArticles(condition, pageable);
+        UUID memberId = authService.getMemberIdFromToken();
+        Page<ArticleWithBookResponse> response = articleService.getArticles(memberId, condition, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "게시글 검색 성공"));
     }
 
-    @Operation(summary = "게시글 상세 조회")
+    @Operation(summary = "게시글 상세 조회", description = "다른 organization의 게시글은 조회할 수 없습니다.")
     @GetMapping("/api/articles/{articleId}")
     public ResponseEntity<ApiResponseForm<ArticleResponse>> getArticle(
             @PathVariable UUID articleId
     ) {
-        ArticleResponse response = articleService.getArticle(articleId);
+        UUID memberId = authService.getMemberIdFromToken();
+        ArticleResponse response = articleService.getArticle(memberId, articleId);
         return ResponseEntity.ok(ApiResponseForm.success(response, "게시글 상세 조회 성공"));
     }
 
@@ -95,13 +97,14 @@ public class ArticleController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "내 게시글 목록 조회 성공"));
     }
 
-    @Operation(summary = "특정 유저 게시글 목록 조회")
+    @Operation(summary = "특정 유저 게시글 목록 조회", description = "같은 organization의 유저에 대해서만 조회할 수 있습니다.")
     @GetMapping("/api/member/{memberId}/articles")
     public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getArticlesByMember(
             @PathVariable UUID memberId,
             @ParameterObject Pageable pageable
     ) {
-        Page<ArticleWithBookResponse> response = articleService.getArticlesByMember(memberId, pageable);
+        UUID requesterId = authService.getMemberIdFromToken();
+        Page<ArticleWithBookResponse> response = articleService.getArticlesByMember(requesterId, memberId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저 게시글 목록 조회 성공"));
     }
 
@@ -113,8 +116,21 @@ public class ArticleController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             @ParameterObject Pageable pageable
     ) {
-        Page<ArticleWithBookResponse> response = articleService.getArticlesByMemberAndCateogry(memberId, category, pageable);
+        UUID requesterId = authService.getMemberIdFromToken();
+        Page<ArticleWithBookResponse> response = articleService.getArticlesByMemberAndCategory(requesterId, memberId, category, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 유저 특정 카테고리 게시글 목록 최신순 조회 성공"));
+    }
+
+    @Operation(summary = "특정 카테고리 게시글 목록 최신순 조회", description = "로그인한 사용자의 organization 범위 안에서만 조회합니다.")
+    @GetMapping("/api/articles/categories/{category}")
+    public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getArticlesByCategory(
+            @PathVariable String category,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @ParameterObject Pageable pageable
+    ) {
+        UUID requesterId = authService.getMemberIdFromToken();
+        Page<ArticleWithBookResponse> response = articleService.getArticlesByCategory(requesterId, category, pageable);
+        return ResponseEntity.ok(ApiResponseForm.success(response, "특정 카테고리 게시글 목록 최신순 조회 성공"));
     }
 
     @Operation(summary = "게시글 사진 저장용 presigned URL 발급. 이후 게시글 생성, 수정 등 요청 보낼 때 본 api에서 발급받은 url에서 쿼리스트링 뺀 부분을 photoUrl로 사용해야 함.")
@@ -128,7 +144,7 @@ public class ArticleController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "Presigned URL 발급 성공"));
     }
 
-    @Operation(summary = "홈화면 게시글 목록 조회")
+    @Operation(summary = "홈화면 게시글 목록 조회", description = "친구/응원 관계 기반 피드이며, organization 범위를 벗어난 데이터는 제외됩니다.")
     @GetMapping("/api/articles/home")
     public ResponseEntity<Page<ArticleWithBookResponse>> getCombinedFeed(
             @PageableDefault(size = 10) Pageable pageable
@@ -138,30 +154,20 @@ public class ArticleController {
         return ResponseEntity.ok(page);
     }
 
-    @Operation(summary = "멤버 관심 카테고리 기반 최신글 게시글 목록")
-    @GetMapping("/api/members/{memberId}/feed")
-    public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getFeed(
-            @PathVariable UUID memberId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            @ParameterObject Pageable pageable
-    ) {
-        Page<ArticleWithBookResponse> response = articleService.getMemberInterestFeed(memberId, pageable);
-        return ResponseEntity.ok(ApiResponseForm.success(response, "멤버 관심 카테고리 기반 최신글 게시글 목록 조회 성공"));
-    }
-
-    @Operation(summary = "전체 게시글 최신순 목록 조회")
+    @Operation(summary = "전체 게시글 최신순 목록 조회", description = "전체 서비스가 아니라 로그인한 사용자의 organization 전체 게시글을 조회합니다.")
     @GetMapping("/api/articles/feed")
     public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getAllArticlesFeed(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             @ParameterObject Pageable pageable
     ) {
-        Page<ArticleWithBookResponse> response = articleService.getAllArticlesFeed(pageable);
+        UUID memberId = authService.getMemberIdFromToken();
+        Page<ArticleWithBookResponse> response = articleService.getAllArticlesFeed(memberId, pageable);
         return ResponseEntity.ok(ApiResponseForm.success(response, "전체 게시글 최신순 목록 조회 성공"));
     }
 
     @Operation(
             summary = "응원 관계 사용자 게시글 목록 조회",
-            description = "내가 응원을 보낸 사람 + 나에게 응원을 보낸 사람이 작성한 게시글을 최신순으로 조회합니다. "
+            description = "내가 응원을 보낸 사람 + 나에게 응원을 보낸 사람이 작성한 게시글을 최신순으로 조회합니다. organization 범위를 벗어난 데이터는 제외됩니다."
     )
     @GetMapping("/api/articles/cheering-feed")
     public ResponseEntity<ApiResponseForm<Page<ArticleWithBookResponse>>> getCheeringRelatedArticlesFeed(
@@ -213,7 +219,8 @@ public class ArticleController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime endDate
     ) {
-        TotalCharacterCountResponse response = articleService.getTotalCharacterCountByDateRange(memberId, startDate, endDate);
+        UUID requesterId = authService.getMemberIdFromToken();
+        TotalCharacterCountResponse response = articleService.getTotalCharacterCountByDateRange(requesterId, memberId, startDate, endDate);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 특정 유저가 작성한 글의 총 글자 수 조회 성공"));
     }
 
@@ -235,7 +242,8 @@ public class ArticleController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime endDate
     ) {
-        ArticleCountResponse response = articleService.getArticleCountByDateRange(memberId, startDate, endDate);
+        UUID requesterId = authService.getMemberIdFromToken();
+        ArticleCountResponse response = articleService.getArticleCountByDateRange(requesterId, memberId, startDate, endDate);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 특정 유저가 작성한 게시글 수 조회 성공"));
     }
 

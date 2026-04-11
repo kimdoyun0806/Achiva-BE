@@ -123,14 +123,6 @@ public class GoalController {
         return ResponseEntity.ok(ApiResponseForm.success(response, "클릭 카운트 증가 성공"));
     }
 
-    @Operation(summary = "기본 목표 생성", description = "사용자를 위한 기본 목표를 생성합니다.")
-    @PostMapping("/seed-defaults")
-    public ResponseEntity<ApiResponseForm<Void>> seedDefaultGoals() {
-        UUID memberId = authService.getMemberIdFromToken();
-        goalService.seedDefaultGoals(memberId);
-        return ResponseEntity.ok(ApiResponseForm.success(null, "기본 목표 생성 성공"));
-    }
-
     @Operation(
             summary = "특정 기간 동안 본인의 목표 클릭 수 합계 조회",
             description = "기간을 지정하여 본인의 목표들의 클릭 수 합계를 조회합니다. " +
@@ -171,7 +163,8 @@ public class GoalController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime endDate
     ) {
-        TotalClickCountResponse response = goalService.getTotalClickCountByDateRange(memberId, startDate, endDate);
+        UUID requesterId = authService.getMemberIdFromToken();
+        TotalClickCountResponse response = goalService.getTotalClickCountByDateRange(requesterId, memberId, startDate, endDate);
         return ResponseEntity.ok(ApiResponseForm.success(response, "특정 기간 동안 특정 유저의 목표 클릭 수 합계 조회 성공"));
     }
 }

@@ -7,5 +7,5 @@ import unicon.Achiva.domain.article.entity.Article;
 
 
 public interface ArticleRepositoryCustom {
-    Page<Article> searchByCondition(SearchArticleCondition condition, Pageable pageable);
+    Page<Article> searchByCondition(SearchArticleCondition condition, Long organizationId, Pageable pageable);
 }

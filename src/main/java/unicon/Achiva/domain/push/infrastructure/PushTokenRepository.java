@@ -34,6 +34,17 @@ public interface PushTokenRepository extends JpaRepository<PushToken, UUID> {
     @Query("SELECT pt FROM PushToken pt JOIN Member m ON pt.memberId = m.id WHERE m.pushEnabled = true AND pt.isActive = true AND pt.isDeleted = false")
     List<PushToken> findAllActiveByPushEnabled();
 
+    @Query("""
+            SELECT pt
+            FROM PushToken pt
+            JOIN Member m ON pt.memberId = m.id
+            WHERE m.pushEnabled = true
+              AND m.organization.id = :organizationId
+              AND pt.isActive = true
+              AND pt.isDeleted = false
+            """)
+    List<PushToken> findAllActiveByPushEnabledAndOrganizationId(@Param("organizationId") Long organizationId);
+
     /**
      * 특정 회원의 모든 푸시 토큰을 삭제합니다 (회원 탈퇴 시 사용).
      * @param memberId 회원 ID

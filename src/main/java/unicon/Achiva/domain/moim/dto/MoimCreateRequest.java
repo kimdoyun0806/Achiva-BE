@@ -5,9 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import unicon.Achiva.domain.category.Category;
-
-import java.util.List;
 
 @Getter
 @NoArgsConstructor
@@ -29,7 +26,4 @@ public class MoimCreateRequest {
 
     @Schema(description = "비공개 모임 비밀번호", example = "1234")
     private String password;
-
-    @Schema(description = "모임 카테고리 목록")
-    private List<Category> categories;
 }
